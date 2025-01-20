@@ -19,7 +19,7 @@ const { setgroups } = require('process');
 const app = express()
 bodyparse = require('body-parser');
 //definit le dossier des fichier statiques
-app.use('/', express.static( 'web'))
+app.use('/', express.static( 'odroidDaq/web'))
 // for parsing application/json
 app.use(bodyparse.json()) 
 
@@ -97,7 +97,7 @@ app.listen(PORT, (error) =>{
 
 /******************************** requetes GET ***************************************/
 
-//// sert la page par defaut web/index.html
+//// sert la page par defaut odroidDaqweb/index.html
 app.get('/', (req, res)=>{  
     console.log('/', req)  
     res.sendFile('/index.html');

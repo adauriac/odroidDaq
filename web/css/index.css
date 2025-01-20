@@ -1,0 +1,148 @@
+[data-theme="1"] {
+    --fgc1 : black;
+    --fgc2 : whitesmoke;
+
+    --bgb : dodgerblue;
+
+    --bgc1 : white;
+    --bgc2 : whitesmoke;
+    --bgc3 : gainsboro;
+    --bgc4 : silver;
+}
+
+[data-theme="2"] {
+  --fgc1 : lime;
+  --fgc2 : black;
+
+  --bgb :  limegreen;
+
+  --bgc1 : #606060;  
+  --bgc2 : dimgray;
+  --bgc3 : Gray;
+  --bgc4 : darkgray;
+}
+
+body, #main {
+ text-align:center;
+ /* pour un look analyseur*/
+ background-color :var(--bgc1);
+ color: var(--fgc1);
+}
+
+.slidecontainer {
+    width: 90%;
+    text-align:center;
+  /*  background-color: gainsboro; */
+ /* pour un look analyseur*/
+ /* pour un look analyseur*/
+ background-color :var(--bgc3);
+     margin : auto
+  }
+ 
+.slidecontainer p, span{ 
+    display : inline-block;
+  }
+
+.slider { 
+    -webkit-appearance: none;
+    width: 30%;
+    height: 25px;
+    background: var(--bgc2);
+    outline: none;
+    opacity: 0.7;
+    -webkit-transition: .2s;
+    transition: opacity .2s;
+  }
+  
+  .slider:hover {
+    opacity: 1;
+  }
+  
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 25px;
+    height: 25px;
+   /* pour un look analyseur*/
+/*  background:dodgerblue;*/
+  background:var(--bgb);
+    cursor: pointer;
+  }
+  
+  .slider::-moz-range-thumb {
+    width: 25px;
+    height: 25px;
+   /* pour un look analyseur*/
+   /*  background:dodgerblue;*/
+  background:var(--bgb);
+    cursor: pointer;
+  }
+
+  .sliderbtn.round:before {
+    background: var(--bgc2);
+  }
+
+  #config {
+   /* pour un look analyseur*/
+   background-color:var(--bgc2);
+  }
+  
+  #story, #comPorts, #extGain, #segment, #loop, input{
+    /* pour un look analyseur*/
+ background-color: var(--bgc3);
+    color :var(--fgc1);
+  }
+
+  .pure-button-primary {
+   /* pour un look analyseur*/
+   color: var(--fgc2);
+    background: var(--bgb);
+  }
+
+  .btnBox {
+
+    text-align:center; 
+    margin : auto;
+    padding: 0.5em;
+  /* pour un look analyseur*/
+/*   background-color: lightgray;*/
+ background-color: var(--bgc4);
+  }
+
+  .btn {
+    display : inline-block;
+    padding: 5px;
+    margin: 0.5em;
+   /* pour un look analyseur*/
+/*border: 1px solid silver;  
+  background-color: gainsboro; */
+  border: 1px solid var(--bgc4);
+  background-color: var(--bgc3);
+}
+
+.bouton {
+  background-color :var(--bgb); 
+  color:whitesmoke;
+  padding : 1px;
+  margin: 1px;
+}
+
+
+.check {
+  text-align: left;
+  margin: 2px;
+}
+
+
+
+/* pour des divs "traces" resizables */
+.resizable {
+    border: 1px solid var(--bgb);
+  min-height: 200px;
+  min-width: 99%;
+  resize: both;
+  overflow: auto;
+  max-height: fit-content;
+  max-width: fit-content;
+}
+ 

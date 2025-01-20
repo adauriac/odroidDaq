@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>FFTs TE0023 DAQ3</title>
+    <link rel="stylesheet" href="css/pure-min.css">
+    <link rel="stylesheet" href="css/index.css">
+    <link rel="stylesheet" href="css/button.css">
+    <link rel="icon" href="medias/wave.ico">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        .custom-restricted-width {
+            /* To limit the menu width to the content of the menu: */
+            display: inline-block;
+            /* Or set the width explicitly: */
+            /* width: 10em; */
+        }
+    </style>
+  </head>
+
+  <body onload="setupPage();checkComPorts()" >
+  
+    <audio id="play" src="medias/beep-08b.mp3"></audio>
+
+     <div id="head" class="pure-g" data-theme="1">
+      <!--  header  -->
+        <div  class="pure-u-1-6">
+            v <span id="version"></span>&nbsp;&NonBreakingSpace;<span id="cpuTemp"></span>°C<br>
+            <select id="theme-selector" onchange="switchTheme()">
+                <option value="1">Theme Uptodate</option>
+                <option value="2">Theme Nostalgy</option>
+            </select><br>
+            <span id="time">odroid Time</span>
+        </div>    
+        <div  class="pure-u-1-6">   <img  height="80" src="medias/wave.png">  </div>
+        <div  class="pure-u-4-6">   
+            <h1 >nodeFFTs on DAQ3 <span id="titre">TE0023 </span></h1>
+        </div>
+    </div>
+
+    <div id="main" class="pure-g" data-theme="1">
+        <!-- fenetre principale -->
+        <div id="config" class="pure-u-5-24">
+            <!-- boites de configuration, coté gauche -->
+            <h2>config</h2>
+
+            <label for="comPorts">select a ComPort:</label>
+            <select name="comPorts" id="comPorts" onchange="selectComPort(this.value)">
+                <option value="">--Please choose an option--</option> 
+            </select>
+            <br>  
+            <br>  
+
+            <div id="btns" class="btnBox" style="width:90%">
+                AnalogMax-DAQ3<br>
+                <div class="slidecontainer">
+                  <!--  <div style="display:inline-block;text-align:left;padding: auto;">-->
+                    <br>  <p>Gain:</p>
+                        <input type="range" min="1" max="4" step="1" value="1" class="slider" id="gain" oninput="echoSliderValue(this.id, this.value)">
+                        <span id="gainValue">1</span><p>   </p>
+                </div>
+                <div class="slidecontainer">
+                 <!--    <div style="display:inline-block;text-align:right">-->
+                        <p>Samples kS:</p>
+                        <input type="range" min="1" max="7" value="1" step="1" class="slider" id="samples" oninput="echoSliderValue(this.id, this.value)">
+                        <span id="samplesValue">1</span> 
+                  <!--      </div>-->
+                </div>  
+            </div> 
+
+            <div  class="btnBox" style="width:90%">
+                    <br>
+                    <div class="btn pure-u-1-4">
+                        <label for="SQwave">Activate square wave signal:</label>
+                        <input type="checkbox" id="SQwave" name="SQwave"  value="0"    onclick="setButtonValue(this)">
+                    
+                    </div>
+                    <div class="btn pure-u-1-4">
+                        <label for=spanComp">Input Span Compression:</label>
+                        <input type="checkbox" id="spanComp" name="spanComp" value="0" onclick="setButtonValue(this)">
+                    </div>
+
+                    <div class="btn pure-u-1-4">
+                        <label for="highZ">High-Z mode:</label>
+                        <input type="checkbox" id="highZ" name="highZ" value="0" onclick="setButtonValue(this)">
+                    </div>  
+               
+            </div>
+            <br>
+            <div  class="btnBox" style="width:90%"> 
+                    Ampli/Filtre :<br>
+                   <div class="btn pure-u-1-3">
+                        <label for="ACDC">Coupling:</label>
+
+                               <div class="swcontainer">
+                                <div class="switem"> AC</div>
+                                <div class="switem"><label class="switch">   
+                                    <input type="checkbox" id="ACDC" name="ACDC" onclick="setButtonValue(this, false)">
+                                   <span class="sliderbtn round"></span>
+                                </label></div>
+                                <div class="switem"> DC</div>
+                            </div>
+                        </div>
+                    <div class="btn pure-u-1-3">
+                        <label for="X10">Gain :</label>
+
+                        <div class="swcontainer">
+                            <div class="switem"> x5</div>
+                            <div class="switem"><label class="switch">   
+                                <input type="checkbox" id="X10" name="X10" onclick="setButtonValue(this, true)">
+                               <span class="sliderbtn round"></span>
+                            </label></div>
+                            <div class="switem"> x50</div>
+                        </div>
+                       <!-- <input type="checkbox" id="X10" name="X10" value="0"  onclick="setButtonValue(this)">x10-->
+                    </div>
+                    <div class="btn pure-u-1-3">
+                        <label for="FILTER">Filter :</label>
+
+                        <div class="swcontainer">
+                            <div class="switem"> Off</div>
+                            <div class="switem"><label class="switch">   
+                                <input type="checkbox" id="FILTER" name="FILTER" onclick="setButtonValue(this, true)">
+                               <span class="sliderbtn round"></span>
+                            </label></div>
+                            <div class="switem"> On</div>
+                        </div>
+                       <!-- <input type="checkbox" id="X10" name="X10" value="0"  onclick="setButtonValue(this)">x10-->
+                    </div>
+                   <div class="btn pure-u-1-3">
+                        <label for="J2">J2 grounded:</label>
+                        <input type="checkbox" id="J2" name="J2" value="0" class="pure-u-23-24" onclick="setButtonValue(this, true)">
+                 <!--   </div>
+                    <div class="btn pure-u-1-3">-->
+                        <label for="J1">J1 grounded:</label>
+                        <input type="checkbox" id="J1" name="J1" value="0" class="pure-u-23-24" onclick="setButtonValue(this, true)">
+                    </div>
+            </div> 
+
+             <br>
+            <div id="data" class="btnBox" style="width:90%"> 
+                    <div class="btn ">
+                        <label for="extGain">external Gain:</label>
+                        <input type="text" id="extGain" name="extGain" value="1" size="5" onchange="extGainChange(this)">
+                    </div>  
+                    <div class="btn ">
+                        <label for="segment">FFT Segmentation:</label>
+                        <input type="text" id="segment" name="segment" value="1" size="5" >            
+                    </div>  
+                    <div class="btn ">
+                        <label for="fname">Base File Name:</label>
+                        <input type="text" id="fname" name="fname"  size="10" placeholder="toto">   
+                        <div style="text-align:left">filename will be something like:<ul>
+                        <li>toto_sig_<i>datetime</i>.dat for signal</li>
+                        <li>toto_fft_<i>datetime</i>.dat for fft</li></ul>
+                        <i>datetime</i> =odroid timestamp
+                        </div>                   
+                    </div>
+            </div>
+            <br>   
+            <div class="btnBox" style="padding: 0.5em; width:90%">   
+                <br>
+                <label for="story">story:</label>
+                <textarea id="story" name="story" rows="5" cols="33" style="text-align:left" readonly>
+                welcome...
+                </textarea>                
+            </div>     
+        </div>
+        
+        <div class="pure-u-16-24"> 
+            <!-- divs resizables pour les tracés-->  
+            <div id="traces" style="height:90vh">
+                <div id="graph"  class="resizable"> 
+                    <button id="replot-w" title="to replot the analog signal" disabled  class="pure-button pure-button-primary" onclick="replot(this)">Replot signal vs time</button>
+                </div>   
+                <div id="fftGraph"  class="resizable"> 
+                     <button id="replot-f" title="to replot the fft"  disabled class="pure-button pure-button-primary" onclick="replot(this)">Replot P vs freq</button>
+                </div>    
+            </div>         
+        </div>
+
+        <div class="pure-u-3-24">  
+            <!-- boutons de menu sue coté droit-->
+             <div class="pure-menu custom-restricted-width">
+                <ul class="pure-menu-list">
+                    <!-- selection du mode -->
+                    <span class="pure-menu-heading">Mode</span> 
+                    <li class="pure-menu-item bouton">  
+                        <!--<a href="#" class="pure-menu-link">Manual</a>-->
+                        <button id="man" title="switch to manual Mode"  disabled    class="pure-button pure-button-primary" onclick="modeChange(this)">Manual</button>
+                    </li>  
+                    <li class="pure-menu-item bouton">     
+                         <!--<a href="#" class="pure-menu-link">Sequence</a>-->
+                         <button id="seq" title="switch to Sequence Mode"class="pure-button pure-button-primary" onclick="modeChange(this)">Sequence</button>
+                    </li>
+                    <span class="pure-menu-heading"></span>
+
+                    <span id="boutons">
+                        <!-- boutons du mode manu -->
+                        <span class="pure-menu-heading">Analog Signal</span>
+                        <li class="pure-menu-item bouton">  
+                            <button id="acq" title="to acquire an analog signal"  disabled class="pure-button pure-button-primary" onclick="acquire()">Acquisition</button>
+                        </li>  
+                        <li class="pure-menu-item bouton">     
+                        <button id="plot" title="to plot the analog signal"  disabled  class="pure-button pure-button-primary" onclick="plot()">Plot Data</button>
+                        </li>
+                        <li class="pure-menu-item bouton">
+                            <button id="save" title="to save the analog signal in a text file" disabled class="pure-button pure-button-primary" onclick="save()">Save DataFile</button>
+                        </li>
+                        <span class="pure-menu-heading">FFT</span>
+                        <li class="pure-menu-item bouton">
+                            <button id="fft"  title="to compute the fft of the analog signal" disabled  class="pure-button pure-button-primary" onclick="fft()">FFT</button>
+                        
+                        </li>
+                        <li class="pure-menu-item bouton">
+                            <button id="fftsave"  title="to save the fft of the analog signal in a text file"  disabled  class="pure-button pure-button-primary" onclick="fftsave()">Save FFT</button>
+                       </li>
+
+                    </span>
+
+                    <span class="pure-menu-heading"></span>  
+
+                    <span id="sequence" style="visibility:hidden">
+                        <span class="pure-menu-heading">Sequences</span>
+                        <!-- boutons du mode sequence -->
+                        <li class="pure-menu-item check"> 
+                            <label for="chk_plot">plot signal:</label><input type="checkbox" id="chk_plot" value="0" style="margin-right: 1em;" disabled checked="0">
+                        </li>    
+                        <li class="pure-menu-item check"> 
+                            <label for="chk_save">save signal:</label><input type="checkbox" id="chk_save" value="0"  style="margin-right: 1em;" disabled checked="0">
+                        </li>
+                        <li class="pure-menu-item check"> 
+                            <label for="chk_fft">fft:</label><input type="checkbox" id="chk_fft" onclick="checkFFT(this)" value="0"  style="margin-right: 1em;" disabled  checked="0">
+                        </li>
+                        <li class="pure-menu-item check">    
+                            <label for="chk_savefft">save FFT:</label><input type="checkbox" id="chk_savefft" value="0"  style="margin-right: 1em;" disabled checked="0">
+                        </li>  
+                        <li class="pure-menu-item check">  
+                        <label for="loop">loop number:</label>
+                        </li>    
+                        <li class="pure-menu-item check">   
+                            <input type="text" id="loop" name="loop" value="1" size="5" >
+                        </li>    
+                        <li class="pure-menu-item check">        
+                            seq:<span id="seq_status">0</span> 
+                        </li>    
+                        <li class="pure-menu-item check">       
+                            loop:<span id="loop_count">0</span>
+                        </li>
+                        <li class="pure-menu-item bouton ">
+                                <button id="go"   disabled class="pure-button pure-button-primary" onclick="sequence()">Go!</button>
+                        </li>
+                    </span>
+                                     
+                        <span class="pure-menu-heading">misc</span>
+                         <!-- boutons divers toujours visibles -->
+                        <li class="pure-menu-item bouton">   
+                            <button id="datafiles" title="to manage the saved datafiles"    class="pure-button pure-button-primary" onclick="datafiles()">Data Files</button>
+                        </li>
+                        <li class="pure-menu-item bouton"> 
+                        <button id="quit" title="to stop cleanly NodeFFT" style="background-color : black; color :whitesmoke;"   class="pure-button " onclick="quit()">ShutDown</button>
+                        </li>
+                        <li class="pure-menu-item bouton"> 
+                            <button id="help" title="to get some help about NodeFFT"  class="pure-button pure-button-primary" onclick="help()">Help</button>     
+            
+                        </li>
+                    </ul>
+            </div>
+
+        </div>
+
+
+   
+    </div>
+    <br>
+    <div id="foot" class="pure-u-1" data-theme="1">
+        <!-- footer -->
+        <div  class="pure-u-1-6">    <img  height="60" src="medias/logoCNRS.png">  </div>
+        <div  class="pure-u-15-24">  <br>&copy; Pole Elec-2023 </div>
+        <div  class="pure-u-1-6">  <img  height="60" src="medias/logoNEELQ.png">   </div>
+    </div>
+    <script src="index.js"> </script>
+     <script type="application/javascript"src="plotly.js"></script> 
+</body>
+</html>
+
+
+
