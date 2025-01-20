@@ -1,0 +1,2 @@
+# odroidDaq
+for Neel institue
