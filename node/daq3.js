@@ -27,7 +27,6 @@ function getAcqDone(){
     return acqiDone
 }  // FIN function getAcqDone(
 /**********************************************************************/
-
 function initParser() {  
     //quand on a reçu toutes les datas souhaitées par paquets de 16k (* la taille d'un element)
     //nbBytes nbre de caracteres reçus par valeur : 16 bits -> nbBytes =4, 18 ou 20 bits -> 5

@@ -405,7 +405,7 @@ function fft(){
     getQuery('/fft?seg='+ seg)
     document.getElementById('fftsave').disabled = false
 }  // FIN 
-/********************************************************************************************/7
+/********************************************************************************************/
 /**
  * envoie une requete pour sauvegarder sur l'odroid les données FFT
  */
