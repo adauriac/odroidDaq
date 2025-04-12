@@ -4,7 +4,6 @@ const daq3Version = '20221103';
 const JC=1
 if (JC==1)
     console.log("flag JC set ")
-
 const serialport = require("serialport");
 var sp, SerialPort = serialport.SerialPort;
 var events = require('events');
@@ -34,8 +33,7 @@ function initParser() {
     parser = sp.pipe(new ByteLengthParser({ length: 16384 * nbBytes }))
     parser.on('data', function (data) {
         const startParserFunction = performance.now(); // JC 
-        console.log('Received acceptable data!', typeof signal,  data.length )
-        console.log("JC signal.length=", signal.length)
+        console.log('initParser daq3.js (l 37) Received acceptable data!', typeof signal,  data.length )
         // positive values reach from 0 to AdcTreshold, 
         // negatives values from AdcTreshold to AdcTreshold*2 
         var threshold = TEIs.getModule(moduleID).AdcTreshold
@@ -45,7 +43,7 @@ function initParser() {
             // mid scale is 0x8000 / 32768 and pos full scale is 0xffff / 65536
             threshold = 0; maxInt = TEIs.getModule(moduleID).AdcTreshold; 
         }
-        console.log('nbbyte:',nbBytes,'thrsh :', threshold, 'maxint:', maxInt)
+        console.log('initParser daq3.js (l 47) nbbyte:',nbBytes,'thrsh :', threshold, 'maxint:', maxInt)
         var min=0x3ffff, max =0
         //les données arrivent en ascii !  p.ex. : '0','1','A','B','F' pour  0x01ABF
         const start = performance.now(); // JC
@@ -82,11 +80,11 @@ function initParser() {
         const end = performance.now(); // JC
         console.log(`Temps d'exécution conversion dans initParser JC: ${(end - start).toFixed(3)} ms`);// JC
 
-        if (signal.length === signalLength)
+        if (signal.length === signalLength) // signalLength est une variable globale affectee dans dataCollect
             //envoie un signal de fin d'acquisition
-            eventEmitter.emit('acqDone');
+            eventEmitter.emit('acqDone'); // qui declancher un appel a la fonction acquistionDone
 
-        console.log("signal length ", signal.length, " min:", min.toString(16), " max:", max.toString(16))
+        console.log("initParser daq3.js(l 88) signal length ", signal.length, " min:", min.toString(16), " max:", max.toString(16))
         const endParserFunction = performance.now(); // JC 
         console.log(`Temps d'exécution total dans initParser JC: ${(endParserFunction - startParserFunction).toFixed(3)} ms`);// JC
     }) // FIN fonction de parser.on JC
@@ -127,11 +125,11 @@ function getSerialPortList(){
  */
 function dataConvert(s, gain){
     //convertit les données temporelles reçues en Volts selon le type de carte (moduleID)
-    console.log(moduleID,' dataConvert gain:', gain, s.length)
+    console.log('moduleID=',moduleID,' dataConvert gain:', gain, s.length)
 
     var maxInt = TEIs.getModule(moduleID).AdcTreshold *2
     
-    switch( moduleID) {
+    switch( moduleID) { // avec le hard actuel c'est case=4
     case 1 :  //ADC = AD4003BCPZ-RL7 18-bit 2 MSps
         //ADC resolution is 18bit, positive values reach from 0 to 131071, 
         // negatives values from 131072 to 262142 
@@ -294,7 +292,7 @@ function dataCollect(adcSamples){
     //lance l'acqisition du signal temporel
     // nombre de données souhaitées
     signalLength = adcSamples * 1024
-    console.log('dataCollect', adcSamples, signal.length, signalLength, acqiDone)
+    console.log('dataCollect entering (daq3.js l 297) adcSamples', adcSamples, 'signal.length=',signal.length, 'signalLength=',signalLength, 'acqiDone=',acqiDone)
     acqiDone = false
     //supprime les anciennes données
     signal.map (el => 0.0)
@@ -305,7 +303,7 @@ function dataCollect(adcSamples){
         //par paquets de 16ksamples
         for (var i=0; i!= adcSamples; i+=16){ 
             // trigger the adc
-            console.log('trig...')
+            console.log('datacollect l 308 a la jc trig...')
             setParameter('t').then( ()=>{
                 // Collect the data in chunks of 16 kbyte / 16 k * nibbles
                 setParameter('*').then( ()=>{
@@ -348,8 +346,7 @@ function getCollectedData(gain) {
  * modules et variables exportées
  * alias : nom fonction
  */
-module.exports = {
-
+module.exports = { // pour communication avec app.js
     serialPorts : serports,
     moduleID :  moduleID,
     signal : signal,

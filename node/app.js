@@ -127,11 +127,11 @@ app.get('/listSerial/', (req, res)=>{
 
 //// reponse à la requete 'aquire'
 app.get('/acquire/', (req, res)=>{   
-    console.log('acquire')
+    console.log('app.js l 130: acquire')
     clearInterval(blinkLEDinterval);
     setLEDstatus(1)
     // lance l'acqui ur le daq3
-    daq3.dataCollect(acq_samples)
+    daq3.dataCollect(acq_samples) // acq_samples est une variable global
     res.send({ 'acq': 'started'});
 });
 
@@ -247,11 +247,11 @@ app.get('/done?/', (req, res)=>{
 // lance un calcul de fft sur les données acquises
 app.get('/fft/', (req, res)=>{   
     // lance le calcul de la fft (progamme python : welch() )
-    console.log('getFFT')
+    console.log('app.js anonyme (app.get(/fft/) (l 250) getFFT')
     setLEDstatus(1)
     var seg = Number(req.query['seg'])
     // nom prog python suivi des arguments : -f (freq ech.), -s (samples), -m : moyennage(segmentation) '-d'
-    var pythonCmd = ['python/fft3.py', '-f ', '-s ', '-m']
+    var pythonCmd = ['./python/fft3.py', '-f ', '-s ', '-m']
     //   var pythonCmd = ['python/test.py', '-f ', '-s ']
     pythonCmd[1] = '-f ' + TEIs.getModule(TEImodule).AdcSamplingRate
     pythonCmd[2] = '-s ' + acq_samples
@@ -361,7 +361,6 @@ app.get('/upload/',(req, res) => {
 });
 /************************************* requetes POST *********************************/
 
-
 app.post('/', function (req, res) {
     console.log('*',  req.body);
     res.end();
@@ -386,7 +385,6 @@ app.post('/initSerial', function (req, res) {
     )
     
 })
-
 
 //// reponse à la requete 'closeSerial?'
 app.post('/closeSerial', function (req, res) {
@@ -446,12 +444,10 @@ app.post('/extgain', function (req, res) {
     res.end();
 })     
 
-
 app.post('/', function (req, res) {
     console.log('*',  req.body);
     res.end();
 })
-
 
 //// reponse à la requete 'set'
 // changement de la valeur d'une variable du daq3'
@@ -513,10 +509,9 @@ app.post('/samples', function (req, res) {
     // modif du nombre d'echantillons à prendre
     // utilisés lors de l'acquisition
     acq_samples= req.body.val
-    console.log('samples', acq_samples);
+    console.log('anonymous post(/samples) app.js (l 516) samples acq_samples', acq_samples);
     res.end();
 })  
-
 
 //// reponse à la requete 'delfile'
 app.post('/delfile', function (req, res) {
