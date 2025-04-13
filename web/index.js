@@ -507,13 +507,13 @@ function getQuery( q)
     xhttp.open("GET", q ,true);
     xhttp.onreadystatechange=function() {
         //   console.log("xhttpresp=",xhttp.responseText);        
-        if ( xhttp.readyState === 4 && xhttp.status === 404){
+        if (xhttp.readyState === 4 && xhttp.status === 404){
   	      return;  // Nothing to do this time.
         }
         if (xhttp.readyState !== 4
-	      || xhttp.status !== 200
-	      || xhttp.responseText === null
-	      || typeof xhttp.responseText === "undefined"){
+	    || xhttp.status !== 200
+	    || xhttp.responseText === null
+	    || typeof xhttp.responseText === "undefined"){
 
             //    console.log(xhttp.readyState , xhttp.status, xhttp.responseText);
             return;  // Nothing to do this time.
@@ -546,7 +546,7 @@ function getQuery( q)
                 
             }
         }
-        else if ( respKeys[0] =='data') {
+        else if (respKeys[0] =='data') {
             // respValues[0] = object
             //données a plotter        
             console.log(' datas :',respValues[0].length)
@@ -559,7 +559,7 @@ function getQuery( q)
                 document.getElementsByTagName('body')[0].style.cursor = 'default' ; 
             // startTimeInterval()
         }        
-        else if ( respKeys[0].includes('fft') ) {
+        else if (respKeys[0].includes('fft')) {
             // respValues[0] = object
             addComment('fft done :' + respValues[0].length +'pts')
             //fft a plotter
@@ -576,17 +576,17 @@ function getQuery( q)
                 startCpuTempInterval()
             }
         }
-        else if ( respKeys[0].includes('fname') ) {
+        else if (respKeys[0].includes('fname')) {
             // data ou fft sauvées
             addComment(respValues[0]+ ' saved')
             if ( mode_status===1) //mode sequences
                 nextSequence()  
         }
-        else if ( respKeys[0].includes('time') ) {
+        else if (respKeys[0].includes('time')) {
             //timestamp odroid
             document.getElementById('time').innerHTML = respValues[0]
         }
-        else if ( respKeys[0].includes('cpuTemp') ) {
+        else if (respKeys[0].includes('cpuTemp')) {
             //temperature cpu odroid
             var item = document.getElementById('cpuTemp')
             temp = respValues[0]
@@ -598,7 +598,7 @@ function getQuery( q)
                 item.setAttribute('style', 'color :red')
             item.innerHTML = temp
         }
-        else if ( respKeys[0].includes('acqDone') ) {
+        else if (respKeys[0].includes('acqDone')) {
             if ( respValues[0] === true){ 
                 console.log("acqDone");
                 //arrete d'interroger l'odroid
@@ -607,18 +607,16 @@ function getQuery( q)
                 if (seq_status === 1){
                     //mode sequence
                     nextSequence()
-                }
-                else {  //mode standard
+                } else {  //mode standard
                     enableButtons(true)
                     //retour au curseur normal
                     document.getElementsByTagName('body')[0].style.cursor = 'default' ; 
                     startTimeInterval()
                     startCpuTempInterval()
                     addComment('acq done' )
-                    
                 }
             }   
-        }
+        } // fin if ( respKeys[0].includes('acqDone')
     } // FIN fonction argument de xhttp.onreadystatechange=
     xhttp.send();
 }  // FIN getQuery( q)
@@ -660,11 +658,9 @@ function postQuery(name, value)
     console.log('POST:',data);
     xhr.send(JSON.stringify(data));
     xhr.onload = () => {
-        // console.log("onload:",xhr.responseText);
-        console.log(xhr.responseText)
+        console.log("postQuery: index.js (l=663) onload:",xhr.responseText);
         if (name==="initSerial")
             initPage(JSON.parse(xhr.responseText))
-        //else
     }
 }  // FIN function postQuery(name, value)
 /*************************************************************************************************************/

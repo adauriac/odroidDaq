@@ -264,7 +264,8 @@ app.get('/fft/', (req, res)=>{
     console.log ( pythonCmd)
     python.stdout.on('data', function (data) {
         // recupere 2 tableaux {f, Pxx_den}
-        console.log(`Pipe data from python script ...`, data.length);
+        console.log(`app.get(/fft/) app.js (l 267) : Pipe data from python script ... data.length=`, data.length);
+	console.log(`app.get(/fft/ app.js (l 268) `,data[1],` ... `,data[data.length-1])
         dataToSend += data.toString();
     });
 
