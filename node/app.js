@@ -248,73 +248,84 @@ app.get('/done?/', (req, res)=>{
 app.get('/fft/', (req, res)=>{   
     // lance le calcul de la fft (progamme python : welch() )
     console.log('app.js anonyme (app.get(/fft/) (l 250) getFFT')
-    setLEDstatus(1)
-    var seg = Number(req.query['seg'])
-    // nom prog python suivi des arguments : -f (freq ech.), -s (samples), -m : moyennage(segmentation) '-d'
-    var pythonCmd = ['./python/fft3.py', '-f ', '-s ', '-m']
-    //   var pythonCmd = ['python/test.py', '-f ', '-s ']
-    pythonCmd[1] = '-f ' + TEIs.getModule(TEImodule).AdcSamplingRate
-    pythonCmd[2] = '-s ' + acq_samples
-    pythonCmd[3] = '-m ' + seg
-    //   pythonCmd[4] = '-d 0 ' 
-    var dataToSend ="";
-    // spawn new child process to call the python script
-    const python = spawn('python3', pythonCmd )
-    // collect data from script
-    console.log ( pythonCmd)
-    python.stdout.on('data', function (data) {
-        // recupere 2 tableaux {f, Pxx_den}
-        console.log(`app.get(/fft/) app.js (l 267) : Pipe data from python script ... data.length=`, data.length);
-	console.log(`app.get(/fft/ app.js (l 268) `,data[1],` ... `,data[data.length-1])
-        dataToSend += data.toString();
-    });
-
-    python.stderr.on('data', function (data) {
-        console.log('stderr', data.toString());
-    });
-
-    // in close event we are sure that stream from child process is closed
-    python.on('close', (code) => {
-        console.log(`child process close all stdio with code ${code}`);
-
-        // dataTosend -> fft_X et fft_Y pour eventuelle sauvegardesupprime les fichiers
-        var data = JSON.parse(dataToSend)
-        var dataKeys = [] 
-        for (const key in data) {
-            dataKeys.push(key)
-        }          
-        console.log('keys :', dataKeys)
-
-        fft_X_1=data[dataKeys[0]]
-        fft_Y_1=data[dataKeys[1]]  
-        if (data[dataKeys[3]].length != undefined){
-            fft_X_N=data[dataKeys[3]]
-            fft_Y_N=data[dataKeys[4]]     
-        }
-        else{
-            fft_X_N.length=0; fft_Y_N.length=0
-        }
-        console.log(dataKeys[2], data[dataKeys[2]], 'lengths fft1:', data[dataKeys[0]].length, ' fft2:', data[dataKeys[3]].length )
-        
-        // send data to browser
-        res.send(dataToSend)
-        blinkLEDinterval = setInterval(blinkLEDstatus, 500);
-    });
-    
     var gain = acq_gain
     if (acq_spanComp)
         gain = acq_gain / 0.8  
     // on tient compte du gain externe, et du gain preampli
     gain = gain * acq_extgain * acq_gainX10
-    console.log('write data in python script...')    
-    /* Stringify the array before send to py_process */
     var data= daq3.getSignalData(gain)
-    python.stdin.write(JSON.stringify( data) )
-    
-    /* Close the stream */
-    python.stdin.end();
+    let JCFFT=0
+    if (JCFFT) {
+	console.log("pas implemente")
+	console.log("length=",data.length,"data[0]=",data[0])
+	process.exit(1);
+    } else {
+	setLEDstatus(1)
+	var seg = Number(req.query['seg'])
+	// nom prog python suivi des arguments : -f (freq ech.), -s (samples), -m : moyennage(segmentation) '-d'
+	var pythonCmd = ['./odroidDaq/node/python/fft3.py', '-f ', '-s ', '-m']
+	pythonCmd[1] = '-f ' + TEIs.getModule(TEImodule).AdcSamplingRate
+	pythonCmd[2] = '-s ' + acq_samples
+	pythonCmd[3] = '-m ' + seg
+	//   pythonCmd[4] = '-d 0 ' 
+	var dataToSend ="";
+	// spawn new child process to call the python script
+	const python = spawn('python3', pythonCmd )
+	// collect data from script
+	console.log ("app.get(/fft/) app.js (l 264) : pythonCmd=",pythonCmd)
+	python.stdout.on('data', function (data) {
+            // recupere 2 tableaux {f, Pxx_den}
+            console.log(`app.get(/fft/) app.js (l 267) : Pipe data from python script ... data.length=`, data.length);
+	    console.log(`app.get(/fft/ app.js (l 268) `,data[1],` ... `,data[data.length-1])
+            dataToSend += data.toString();
+	});
+	python.stderr.on('data', function (data) {
+            console.log('app.get(/fft/ app.js (l 273) stderr data.toString()=', data.toString());
+	});
+	// in close event we are sure that stream from child process is closed
+	python.on('close', (code) => {
+            console.log(`child process close all stdio with code ${code}`);
 
-});
+            // dataTosend -> fft_X et fft_Y pour eventuelle sauvegardesupprime les fichiers
+            var data = JSON.parse(dataToSend)
+            var dataKeys = [] 
+            for (const key in data) {
+		dataKeys.push(key)
+            }          
+            console.log('app.get(/fft/ app.js (l 296) keys :', dataKeys)
+
+            fft_X_1=data[dataKeys[0]]
+            fft_Y_1=data[dataKeys[1]]
+	    {  // BIDON
+		let nn = fft_X_1.length  // BIDON
+		for(let i=0;i<nn;i++)  // BIDON
+		    fft_X_1[i] = i;  // BIDON
+		let nnn = fft_Y_1.length  // BIDON
+		for(let i=0;i<nn;i++)  // BIDON
+		    fft_Y_1[i] = -i;  // BIDON
+	    }  // BIDON
+
+            if (data[dataKeys[3]].length != undefined){
+		fft_X_N=data[dataKeys[3]]
+		fft_Y_N=data[dataKeys[4]]     
+            }
+            else{
+		fft_X_N.length=0; fft_Y_N.length=0
+            }
+            console.log(dataKeys[2], data[dataKeys[2]], 'lengths fft1:', data[dataKeys[0]].length, ' fft2:', data[dataKeys[3]].length )
+            
+            // send data to browser
+            res.send(dataToSend)
+            blinkLEDinterval = setInterval(blinkLEDstatus, 500);
+	});
+	console.log('app.get(/fft/) app.js (l 311) write data in python script...')    
+	console.log ("app.get(/fft/) app.js (l 310) JSON.stringify(data)=",JSON.stringify(data).slice(0,200)) 
+	/* Stringify the array before send to py_process */
+	python.stdin.write(JSON.stringify(data) )
+	/* Close the stream */
+	python.stdin.end();
+    } // fin else de if (JCFFT)
+});  // fin app.get('/fft/', (req, res)=>{   
 
 //// reponse à la requete 'listdir?'
 app.get("/listDir/", (req, res)=> {
