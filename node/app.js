@@ -265,7 +265,7 @@ app.get('/fft/', (req, res)=>{
 	// nom prog python suivi des arguments : -f (freq ech.), -s (samples), -m : moyennage(segmentation) '-d'
 	var pythonCmd = ['./odroidDaq/node/python/fft3.py', '-f ', '-s ', '-m']
 	pythonCmd[1] = '-f ' + TEIs.getModule(TEImodule).AdcSamplingRate
-	pythonCmd[2] = '-s ' + acq_samples
+	pythonCmd[2] = '-s ' + acq_samples // variable globale affectee par samples
 	pythonCmd[3] = '-m ' + seg
 	//   pythonCmd[4] = '-d 0 ' 
 	var dataToSend ="";
@@ -276,7 +276,7 @@ app.get('/fft/', (req, res)=>{
 	python.stdout.on('data', function (data) {
             // recupere 2 tableaux {f, Pxx_den}
             console.log(`app.get(/fft/) app.js (l 267) : Pipe data from python script ... data.length=`, data.length);
-	    console.log(`app.get(/fft/ app.js (l 268) `,data[1],` ... `,data[data.length-1])
+	    // ICI JE METS DES VALEURS FAKE
             dataToSend += data.toString();
 	});
 	python.stderr.on('data', function (data) {
@@ -285,26 +285,16 @@ app.get('/fft/', (req, res)=>{
 	// in close event we are sure that stream from child process is closed
 	python.on('close', (code) => {
             console.log(`child process close all stdio with code ${code}`);
-
             // dataTosend -> fft_X et fft_Y pour eventuelle sauvegardesupprime les fichiers
             var data = JSON.parse(dataToSend)
             var dataKeys = [] 
             for (const key in data) {
 		dataKeys.push(key)
-            }          
+            } 
             console.log('app.get(/fft/ app.js (l 296) keys :', dataKeys)
 
             fft_X_1=data[dataKeys[0]]
             fft_Y_1=data[dataKeys[1]]
-	    {  // BIDON
-		let nn = fft_X_1.length  // BIDON
-		for(let i=0;i<nn;i++)  // BIDON
-		    fft_X_1[i] = i;  // BIDON
-		let nnn = fft_Y_1.length  // BIDON
-		for(let i=0;i<nn;i++)  // BIDON
-		    fft_Y_1[i] = -i;  // BIDON
-	    }  // BIDON
-
             if (data[dataKeys[3]].length != undefined){
 		fft_X_N=data[dataKeys[3]]
 		fft_Y_N=data[dataKeys[4]]     

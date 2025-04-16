@@ -67,7 +67,7 @@ def main():
     data=[]
     for d in data_input.values():
         data.append(float(d))
-    sys.stderr.write('\nPY:fft3  fs =' + str(fs) + ' seg=' +str(seg) +' N='+ str(len(data)))
+    sys.stderr.write('\nPY:fft3  fs =' + str(fs) + ' seg=' +str(seg) +' N='+ str(len(data))+'\n')
     
     # FFT
     # avec seg =1
@@ -75,7 +75,9 @@ def main():
     # segmentation p  seg=N//p
     #boxcar, triang, blackman, hamming, hann, bartlett, flattop, parzen, bohman, blackmanharris, nuttall, barthann
     f1, P1xx_den = signal.welch(data, fs, 'hann',nperseg=nbperseg, scaling='density')
-    # f, Pxx sont des ndarray
+    sys.stderr.write("PY: commande lancee : signal.welch(data, fs, 'hann',nperseg=nbperseg, scaling='density') ")
+    sys.stderr.write("avec fs=%d nbperseg=%d len(data)=%d\n"%(fs,nbperseg,len(data)))
+# f, Pxx sont des ndarray
     sys.stderr.write('\nPY:computed..' + str(f1.size))
     fmin = 0
 
@@ -83,10 +85,12 @@ def main():
         fmin = f1[1] #plus petite valeur de f non nulle
         sys.stderr.write('\nPY:fmin = ' + str(fmin) + str(f1[0]))
         # on refait une FFT avec seg = N   
-        sys.stderr.write('\nPY:fft3  fs =' + str(fs) + ' seg=1 N='+ str(len(data)))
+        sys.stderr.write('\nPY:fft3  fs =' + str(fs) + ' seg=1 N='+ str(len(data))+'\n')
     
         nbperseg = samples * 1024/seg
         f2, P2xx_den = signal.welch(data, fs, 'hann',nperseg=nbperseg, scaling='density')
+        sys.stderr.write("PY: commande Relancee (seg>1) : signal.welch(data, fs, 'hann',nperseg=nbperseg, scaling='density') ")
+        sys.stderr.write("avec fs=%d nbperseg=%d len(data)=%d\n"%(fs,nbperseg,len(data)))
         ## on ne garde les valeurs que jusqu'à f =fmin
       
         sys.stderr.write('\nPY: f2 size = ' + str(f2.size))

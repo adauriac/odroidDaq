@@ -789,7 +789,7 @@ async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2)
 
 function asyncPlotFft(data)
 {
-    console.log(data)
+    console.log("asyncPlotFft index.js (l 792) data= ", data)
     return new Promise(resolve => {
         
         if (colorTheme== 1) {   // blue  : blue, dodgerblue
