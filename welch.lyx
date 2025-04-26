@@ -199,65 +199,24 @@ PY:
 \end_layout
 
 \begin_layout Standard
-PY:
- commande lancee :
- signal.welch(data,
- fs,
- 'hann',nperseg=nbperseg,
- scaling='density') avec fs=2000000 nbperseg=16384 len(data)=16384
-\end_layout
-
-\begin_layout Standard
-PY:
- commande lancee :
- signal.welch(data,
- fs,
- 'hann',nperseg=nbperseg,
- scaling='density') avec fs=2000000 nbperseg=32768 len(data)=32768
-\end_layout
-
-\begin_layout Standard
-PY:
- commande lancee :
- signal.welch(data,
- fs,
- 'hann',nperseg=nbperseg,
- scaling='density') avec fs=2000000 nbperseg=65536 len(data)=65536
-\end_layout
-
-\begin_layout Standard
-
-\end_layout
-
-\begin_layout Standard
-\align center
-\begin_inset Box Boxed
-position "t"
-hor_pos "c"
-has_inner_box 1
-inner_pos "t"
-use_parbox 0
-use_makebox 0
-width "100col%"
-special "none"
-height "1in"
-height_special "totalheight"
-thickness "0.4pt"
-separation "3pt"
-shadowsize "4pt"
-framecolor "default"
-backgroundcolor "none"
-status open
-
-\begin_layout Plain Layout
-\align center
-nbperseg=len(data) c'est une donc une transformation de Fourier ordinaire avec fenêtre de han qui est exécutée !!
- 
-\end_layout
+fenêtre de Hann:
+\begin_inset Formula 
+\[
+w\left(n\right)=\frac{1}{2}-\frac{1}{2}\cos\left(\frac{2\pi n}{M-1}\right)\qquad0\le n<M
+\]
 
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+On lance 
+\bar under
+toujours
+\bar default
+ le cas nperseg=len(data) et si on a demander sec>1 on relance avec nperseg=len(data)/seg.
+ Le nombre de frquence sera alors (len(data)/2+1)/seg
 \end_layout
 
 \end_body
