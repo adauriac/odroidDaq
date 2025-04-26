@@ -2,6 +2,7 @@ const PORT = 3000;
 const serverVersion = '20230509';
 // version adaptée à l'ampli diff_JFE2140
 // gain 5/50, gpio led
+let JCFFT=0 // to use either the pld python version or the new js version (JCFFT->new javascript)
 
 // pour la comm avec daq3
 const daq3 = require('./daq3.js');
@@ -257,7 +258,6 @@ app.get('/fft/', (req, res)=>{
     var data= daq3.getSignalData(gain)
     var seg = Number(req.query['seg'])
     setLEDstatus(1)
-    let JCFFT=1
     if (JCFFT) {
 	console.log("app.get(/fft/) (l 260) javascript welch in progress"); 
 	console.log("length=",data.length,"data[0]=",data[0])
@@ -572,10 +572,9 @@ function fillGainCommand(data){
         }
     }
     console.log( 'gainValues:', gainValues);
-
-}
-
+} // FIN function fillGainCommand(data){
 /**************************************************************************/
+
 /**
  * async function computeCPUTemp()
  * @brief   calcule une temperature moyenne du CPU en lisant les valeurs de temp des 5 zones
@@ -583,9 +582,7 @@ function fillGainCommand(data){
  * 
  * @returns la temperature moyenne
  */
-
-async function computeCPUTemp()
-{
+async function computeCPUTemp() {
     var cpuTemp=0, cmd="";
     let cpuTempCmd ="cat /sys/devices/virtual/thermal/thermal_zone";
     let error= false;
@@ -610,8 +607,7 @@ async function computeCPUTemp()
         // /1000 pour l'avoir en degréC
         return( cpuTemp/ 1000) ;
     }
-
-}
+} // FIN async function computeCPUTemp()
 
 /**
  * function getCpuTemp( cmd)
@@ -649,16 +645,15 @@ function getCpuTemp( cmd){
 
 }
 /**************************************************************************/
+
+function quit() { 
 /**
  * pour quitter, et arretere proprement l'odroid
  */
-function quit()
-{ 
-    
     console.log( 'function quit');
     // lancement du script bash
     spawn ("/bin/sh", ['-c', `/usr/local/bin/shutDown.sh`]);
-}
+} // FIN function quit() { 
 /* *********************************************************************************** */
 
 function welchise(data,nSeg) {
