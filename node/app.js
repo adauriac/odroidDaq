@@ -256,15 +256,29 @@ app.get('/fft/', (req, res)=>{
     gain = gain * acq_extgain * acq_gainX10
     var data= daq3.getSignalData(gain)
     var seg = Number(req.query['seg'])
-    let JCFFT=0
+    setLEDstatus(1)
+    let JCFFT=1
     if (JCFFT) {
 	console.log("app.get(/fft/) (l 260) javascript welch in progress"); 
 	console.log("length=",data.length,"data[0]=",data[0])
-	welchise(data)
-	process.exit(1);
+	let dataToSend = welchise(data,seg) // dataToSend is a string 
+        var mydata = JSON.parse(dataToSend)
+        var dataKeys = [] 
+        for (const key in mydata) 
+	    dataKeys.push(key)
+        console.log('app.get(/fft/ app.js (l 296) keys :', dataKeys)	
+        fft_X_1=mydata[dataKeys[0]]
+        fft_Y_1=mydata[dataKeys[1]]
+        if (mydata[dataKeys[3]].length != undefined){
+	    fft_X_N=mydata[dataKeys[3]]
+	    fft_Y_N=mydata[dataKeys[4]]     
+        }
+        else{
+	    fft_X_N.length=0; fft_Y_N.length=0
+        }
+        res.send(dataToSend)
+        blinkLEDinterval = setInterval(blinkLEDstatus, 500);
     } else {
-	setLEDstatus(1)
-	var seg = Number(req.query['seg'])
 	// nom prog python suivi des arguments : -f (freq ech.), -s (samples), -m : moyennage(segmentation) '-d'
 	var pythonCmd = ['./odroidDaq/node/python/fft3.py', '-f ', '-s ', '-m']
 	pythonCmd[1] = '-f ' + TEIs.getModule(TEImodule).AdcSamplingRate
@@ -647,32 +661,11 @@ function quit()
 }
 /* *********************************************************************************** */
 
-function welchise(data) {
-    // perfrom the welch transform end i) send the results to the client, ii) set the arrays fft_X_1 and friends 
-    console.log('welchise app.js  (l 645) entering');
-    // dataTosend -> fft_X et fft_Y pour eventuelle sauvegardesupprime les fichiers
-    var data = JSON.parse(dataToSend)
-    var dataKeys = [] 
-    for (const key in data) {
-	dataKeys.push(key)
-    } 
-    console.log('app.get(/fft/ app.js (l 296) keys :', dataKeys)
-    
-    fft_X_1=data[dataKeys[0]]
-    fft_Y_1=data[dataKeys[1]]
-    if (data[dataKeys[3]].length != undefined){
-	fft_X_N=data[dataKeys[3]]
-	fft_Y_N=data[dataKeys[4]]     
-    }
-    else{
-	fft_X_N.length=0; fft_Y_N.length=0
-    }
-    console.log(dataKeys[2], data[dataKeys[2]], 'lengths fft1:', data[dataKeys[0]].length, ' fft2:', data[dataKeys[3]].length )
-    
-    // send data to browser
-    res.send(dataToSend)
-    blinkLEDinterval = setInterval(blinkLEDstatus, 500);
-}; // FIN function welchise(data) {
+function welchise(data,nSeg) {
+    console.log(`welchise : data.length=${data.length} data=${data[0]},${data[1]},.., ${data[data.length-1]}`)
+    console.log(`welchise : nSeg=${nSeg}`)
+    return generatedataToSend()
+}; // FIN function welchise(data,nSeg) {
 /* *********************************************************************************** */
 
 function generatedataToSend(N=8192) {
