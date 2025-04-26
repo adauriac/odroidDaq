@@ -87,13 +87,11 @@ odroidGPIOS.forEach( function( n) {
 
 // demarrage du serveur web 'express'
 app.listen(PORT, (error) =>{
-    if(!error) {
+    if(!error) 
         console.log("Server v"+ serverVersion +"is Successfully Running, and App is listening on port "+ PORT); //console.log(TEI.length)
-    }
     else 
         console.log("Error occurred, server can't start", error);
-}
-          );
+});
 
 /******************************** requetes GET ***************************************/
 
@@ -171,6 +169,9 @@ app.get('/savefft/', (req, res)=>{
     // sauvegarde de la fft calculée
     // fichier texte 2 colonnes X, Y
     var fftStr='', size = fft_X_1.length
+    console.log(typeof fft_X_1)
+    console.log(`app.get('/savefft/' size=${size} et ${fft_Y_1.length}`)
+    console.log(`fapp.get('/savefft/' fft_X_1[0]=${fft_X_1[0]} fft_Y_1[0]=${fft_Y_1[0]}`)
     for (let i=0; i!=size; i++ ){
         fftStr += fft_X_1[i].toString() + ' ' + fft_Y_1[i].toString() + '\n'
     }
@@ -254,10 +255,12 @@ app.get('/fft/', (req, res)=>{
     // on tient compte du gain externe, et du gain preampli
     gain = gain * acq_extgain * acq_gainX10
     var data= daq3.getSignalData(gain)
+    var seg = Number(req.query['seg'])
     let JCFFT=0
     if (JCFFT) {
-	console.log("pas implemente")
+	console.log("app.get(/fft/) (l 260) javascript welch in progress"); 
 	console.log("length=",data.length,"data[0]=",data[0])
+	welchise(data)
 	process.exit(1);
     } else {
 	setLEDstatus(1)
@@ -285,7 +288,13 @@ app.get('/fft/', (req, res)=>{
 	// in close event we are sure that stream from child process is closed
 	python.on('close', (code) => {
             console.log(`child process close all stdio with code ${code}`);
+	    if (0) {
+		console.log("app.get(/fft/) app.js (l 291) GENERATING FAKE DATA");
+		dataToSend = generatedataToSend()
+	    }
+	    console.log(`app.get(/fft/) app.js (l 290) APRES dataToSend= ${dataToSend}`)
             // dataTosend -> fft_X et fft_Y pour eventuelle sauvegardesupprime les fichiers
+	    // JC JC JC MODIFICATION DE LA STRING dataToSend POUR VERIFICATION
             var data = JSON.parse(dataToSend)
             var dataKeys = [] 
             for (const key in data) {
@@ -636,3 +645,49 @@ function quit()
     // lancement du script bash
     spawn ("/bin/sh", ['-c', `/usr/local/bin/shutDown.sh`]);
 }
+/* *********************************************************************************** */
+
+function welchise(data) {
+    // perfrom the welch transform end i) send the results to the client, ii) set the arrays fft_X_1 and friends 
+    console.log('welchise app.js  (l 645) entering');
+    // dataTosend -> fft_X et fft_Y pour eventuelle sauvegardesupprime les fichiers
+    var data = JSON.parse(dataToSend)
+    var dataKeys = [] 
+    for (const key in data) {
+	dataKeys.push(key)
+    } 
+    console.log('app.get(/fft/ app.js (l 296) keys :', dataKeys)
+    
+    fft_X_1=data[dataKeys[0]]
+    fft_Y_1=data[dataKeys[1]]
+    if (data[dataKeys[3]].length != undefined){
+	fft_X_N=data[dataKeys[3]]
+	fft_Y_N=data[dataKeys[4]]     
+    }
+    else{
+	fft_X_N.length=0; fft_Y_N.length=0
+    }
+    console.log(dataKeys[2], data[dataKeys[2]], 'lengths fft1:', data[dataKeys[0]].length, ' fft2:', data[dataKeys[3]].length )
+    
+    // send data to browser
+    res.send(dataToSend)
+    blinkLEDinterval = setInterval(blinkLEDstatus, 500);
+}; // FIN function welchise(data) {
+/* *********************************************************************************** */
+
+function generatedataToSend(N=8192) {
+    function generateRepeatedNumberString() {
+	const number = "1.234e-7";
+	return '"fft_y1": ['+Array(N+1).fill(number).join(",")+']';
+    }
+    function generateScaledNumbersString() {
+	const factor = 122.0703125;
+	const numbers = [];
+	for (let n = 0; n <= N; n++) {
+            numbers.push(factor * n);
+	}
+	return '"fft_x1": ['+ numbers.join(",") +']';
+    }
+    return  '{' + generateScaledNumbersString() + ',' +  generateRepeatedNumberString() + ',"f0": 0,"fft_x2": 0,"fft_y2": 0.0}'
+} // FIN function generatedataToSend(N=8192) {
+/* *********************************************************************************** */
