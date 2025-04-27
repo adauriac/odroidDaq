@@ -2,7 +2,7 @@ const PORT = 3000;
 const serverVersion = '20230509';
 // version adaptée à l'ampli diff_JFE2140
 // gain 5/50, gpio led
-let JCFFT=0 // to use either the pld python version or the new js version (JCFFT->new javascript)
+let JCFFT=1 // to use either the pld python version or the new js version (JCFFT->new javascript)
 
 // pour la comm avec daq3
 const daq3 = require('./daq3.js');
@@ -13,6 +13,7 @@ const gpio = require("onoff").Gpio
 // pour la manipulation de fichiers statiques
 const path = require('path')
 var fs = require('fs');
+var FFT = require('./lib/fft.js') // JC ??????????????????????????????????????????????????????
 //les pages web sont dans le dossier 'web'
 var express = require('express');
 const { parseArgs } = require('util');
@@ -50,7 +51,12 @@ var gpios ={}
 var acq_gain =1,  acq_extgain =1, acq_gainX10=5, acq_samples=16
 var acq_highZ=false, acq_spanComp=false, acq_sqWave=false
 var fft_X_1= new Float64Array(), fft_Y_1= new Float64Array()
-var fft_X_N= new Float64Array(), fft_Y_N= new Float64Array()  
+var fft_X_N= new Float64Array(), fft_Y_N= new Float64Array()
+/* ********************************************************************* */
+/*                      POUR TESTER WELCH                                */
+/* ********************************************************************* */
+const bidon = Array.from({length: 8}, (_,i) => i)
+welchise(bidon,1)
 /**************************************************************************/
 
 // intervalle de cligotement de la led status
@@ -656,11 +662,44 @@ function quit() {
 } // FIN function quit() { 
 /* *********************************************************************************** */
 
-function welchise(data,nSeg) {
+function welchiseeee(data,nSeg) {
     console.log(`welchise : data.length=${data.length} data=${data[0]},${data[1]},.., ${data[data.length-1]}`)
     console.log(`welchise : nSeg=${nSeg}`)
     return generatedataToSend()
 }; // FIN function welchise(data,nSeg) {
+/* *********************************************************************************** */
+
+function welchise(input,nSeg) {
+    // calcul TOUJOURS la transformee de welch avec un seul segment
+    // puis si nSeg>1 calcul EN PLUS la transformee abev nSeg segments
+    // utilise la fenetre de Hann definie par w(k) = 1/2 - 1/2 *cos(2*Pi*k/(n-1)) 0<=k<n
+    // ces valeurs viennent de la transformee de Welch de scipy
+    // l'overlap entre deux segments est de la moitie donc
+    // si l'echantillon initial est de taille 2**k et qu'il y a 2 segments alors
+    // segments 1 de 0 a 2**(k-1)
+
+    console.log(`welchise : input.length=${input.length} input=${input[0]},${input[1]},.., ${input[input.length-1]}`)
+    console.log(`welchise : nSeg=${nSeg}`)
+    // return generatedataToSend()
+    let verbose= 0
+    let n = input.length
+    let m = Math.trunc(n/2)+1
+    const hann = [...input]; // the values will be modified by x->x * (0.5 - 0.5*cos(2*pi*k/(n-1)))
+    for(let i=0;i<n;i++) {
+	let w = 0.5 - 0.5*Math.cos(2*Math.PI*i/(n-1.))
+	hann[i] *= w
+    }
+    const f = new FFT(n);
+    let output = f.createComplexArray();
+    f.realTransform(output, input);
+    if (verbose)
+	for(let i=0;i<n/2;i+=2) 
+	    console.log("fft",i/2,output[i],output[i+1])
+    const result = new Array(m)
+    for(let i=0;i<m;i++) 
+	result[i] = output[2*i]*output[2*i]  + output[2*i+1]*output[2*i+1] 
+    return result
+}  // FIN function welch(input,nSeg) {
 /* *********************************************************************************** */
 
 function generatedataToSend(N=8192) {
