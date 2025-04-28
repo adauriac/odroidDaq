@@ -662,11 +662,11 @@ function quit() {
 } // FIN function quit() { 
 /* *********************************************************************************** */
 
-function welchiseeee(data,nSeg) {
+function welchiseFake(data,nSeg) {
     console.log(`welchise : data.length=${data.length} data=${data[0]},${data[1]},.., ${data[data.length-1]}`)
     console.log(`welchise : nSeg=${nSeg}`)
     return generatedataToSend()
-}; // FIN function welchise(data,nSeg) {
+}; // FIN function welchiseFake(data,nSeg) {
 /* *********************************************************************************** */
 
 function welchise(input,nSeg) {
@@ -718,3 +718,25 @@ function generatedataToSend(N=8192) {
     return  '{' + generateScaledNumbersString() + ',' +  generateRepeatedNumberString() + ',"f0": 0,"fft_x2": 0,"fft_y2": 0.0}'
 } // FIN function generatedataToSend(N=8192) {
 /* *********************************************************************************** */
+
+function segmentise(n,k) {
+    // there are 2**n points, and each segments has 2**(n-k) points
+    // the consecutive segments overlap by half of their length
+    // return the list of the endpoints of the segments,
+    // the first point is included while the last is excluded
+    N = 2**n
+    nps = 2**(n-k)
+    npsHalf = 2**(n-k-1)
+    nbs = 2**(k+1)-1
+    cur = 0
+    // console.log("N=",N," #pts per segment=",nps," nb segments=",nbs)
+    let res = [];
+    for (let i=0;i<nbs;i++) {
+	// console.log(i,cur,cur+nps)
+	res.push([cur,cur+nps])
+	cur = cur + npsHalf
+    }
+    return res;
+} // FIN function segmentise(n,k) {
+// *************************************************************************
+

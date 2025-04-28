@@ -219,5 +219,80 @@ toujours
  Le nombre de frquence sera alors (len(data)/2+1)/seg
 \end_layout
 
+\begin_layout Subsection*
+Questions
+\end_layout
+
+\begin_layout Standard
+D'après la commande lancée nbperseg=len(data)/seg,
+ mais les segments 
+\series bold
+se recouvrent par défaut de moitié 
+\series default
+donc seg n'est pas le nombre de segments.
+ Par exemple si 
+\begin_inset Formula $n=2^{k}$
+\end_inset
+
+ et seg
+\begin_inset Formula $=2$
+\end_inset
+
+ nbperseg
+\begin_inset Formula $=2^{k-1}$
+\end_inset
+
+ et il y aura 3 segments:
+ 
+\begin_inset Formula $\left[0,2^{k-1}\right]$
+\end_inset
+
+,
+ 
+\begin_inset Formula $\left[2^{k-2},3\,2^{k-2}\right]$
+\end_inset
+
+ et 
+\begin_inset Formula $\left[2^{k-1},2^{k}\right]$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Les segments doivent aussi être des puissances de 2.
+ Ci-dessus on a vu 
+\begin_inset Formula $2^{k-1}$
+\end_inset
+
+.
+ Pour 
+\begin_inset Formula $2^{q}$
+\end_inset
+
+ le débuts des segments seront de 
+\begin_inset Formula $\alpha2^{q-1}$
+\end_inset
+
+ et le dernier segment sera tel que 
+\begin_inset Formula $\alpha^{*}2^{q-1}=2^{k}$
+\end_inset
+
+ donc 
+\begin_inset Formula $\alpha^{*}=2^{k-q+1}$
+\end_inset
+
+.
+ 
+\begin_inset Formula 
+\[
+\text{nps}=\frac{N}{2^{k}}\Longrightarrow\text{nbs}=2^{k+1}-1
+\]
+
+\end_inset
+
+
+\end_layout
+
 \end_body
 \end_document
