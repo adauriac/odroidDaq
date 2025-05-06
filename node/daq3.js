@@ -2,7 +2,7 @@
 // liaison avec le module DAQ3 via la liaison serie
 const daq3Version = '20221103';
 const JC=1
-console.log("flag JC set ",JC)
+console.log("# flag JC= ",JC)
 const serialport = require("serialport");
 var sp, SerialPort = serialport.SerialPort;
 var events = require('events');

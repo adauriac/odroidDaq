@@ -1,8 +1,8 @@
 const PORT = 3000;
 const serverVersion = '20230509';
+let JCFFT=1 // to use either the pld python version or the new js version (JCFFT->new javascript)
 // version adaptée à l'ampli diff_JFE2140
 // gain 5/50, gpio led
-let JCFFT=1 // to use either the pld python version or the new js version (JCFFT->new javascript)
 
 // pour la comm avec daq3
 const daq3 = require('./daq3.js');
@@ -56,9 +56,9 @@ var fft_X_N= new Float64Array(), fft_Y_N= new Float64Array()
 /*                      POUR TESTER WELCH                                */
 /* ********************************************************************* */
 
-console.log("flag JCFFT=",JCFFT)
-const bidon = Array.from({length: 8}, (_,i) => i)
-welchise(bidon,1)
+console.log("# flag JCFFT=",JCFFT)
+if (0)
+    testAndQuit(128,5,1./10) // testAndQuit(npts,w,T) signal = sin(w*t) echatillonne a 0,T,2*T,...,(npts-1)*T 
 /**************************************************************************/
 
 // intervalle de cligotement de la led status
@@ -269,8 +269,12 @@ app.get('/fft/', (req, res)=>{
     if (JCFFT) {
 	console.log("app.get(/fft/) (l 260) javascript welch in progress"); 
 	console.log("length=",data.length,"data[0]=",data[0])
-	let dataToSend = welchise(data,seg) // dataToSend is a string 
+	let result = welchise(data,seg) // dataToSend is a string
+	let dataToSend = jsonize(welchise(data,seg)) // dataToSend is a string
+	const ndts=dataToSend.length
+	console.log("app.get(/fft/) (l 278) deb et fin dataToSend ",dataToSend.slice(0,60)," ",dataToSend.slice(ndts-60,ndts-1))
         var mydata = JSON.parse(dataToSend)
+	console.log("app.get(/fft/) (l 281) mydata cree") 
         var dataKeys = [] 
         for (const key in mydata) 
 	    dataKeys.push(key)
@@ -680,28 +684,34 @@ function welchise(input,nSeg) {
     // si l'echantillon initial est de taille 2**k et qu'il y a 2 segments alors
     // segments 1 de 0 a 2**(k-1)
 
-    console.log(`welchise : input.length=${input.length} input=${input[0]},${input[1]},.., ${input[input.length-1]}`)
-    console.log(`welchise : nSeg=${nSeg}`)
-    // return generatedataToSend()
+    console.log(`# welchise : input.length=${input.length} input=${input[0]},${input[1]},.., ${input[input.length-1]}`)
+    console.log(`# welchise : nSeg=${nSeg}`)
+    const hannise = 0
     let verbose= 0
+    // return generatedataToSend()
     let n = input.length
     let m = Math.trunc(n/2)+1
     const hann = [...input]; // the values will be modified by x->x * (0.5 - 0.5*cos(2*pi*k/(n-1)))
     for(let i=0;i<n;i++) {
 	let w = 0.5 - 0.5*Math.cos(2*Math.PI*i/(n-1.))
-	hann[i] *= w
+	if (hannise) {
+	    hann[i] *= w
+	}
     }
     const f = new FFT(n);
     let output = f.createComplexArray();
     f.realTransform(output, input);
     if (verbose)
-	for(let i=0;i<n/2;i+=2) 
+	for(let i=0;i<n;i+=2) 
 	    console.log("fft",i/2,output[i],output[i+1])
     const result = new Array(m)
     for(let i=0;i<m;i++) 
 	result[i] = output[2*i]*output[2*i]  + output[2*i+1]*output[2*i+1] 
+    if (verbose)
+	for(let i=0;i<m;i++) 
+	    console.log(`result[${i}]= ${result[i]}`)
     return result
-}  // FIN function welch(input,nSeg) {
+}  // FIN function welchise(input,nSeg) {
 /* *********************************************************************************** */
 
 function generatedataToSend(N=8192) {
@@ -742,3 +752,31 @@ function segmentise(n,k) {
 } // FIN function segmentise(n,k) {
 // *************************************************************************
 
+function testAndQuit(npts,w,T) {
+    // cree un signal de freq w (w alternance/seconde) echantillonne npts fois a une frequence de 1/T
+    // donc les tps de mesures sont 0, T,2*T, ... ,(npts-1)*T ou le signal vaut sin(0), sin(w*T),sin(2*w*T), ...
+    // il y alors |w*(npts-1)*T| alternance plus la partie non entiere 
+    let S = new Float64Array(npts);  // contiendra le signal
+    for(let i=0;i<npts;i++) {
+	let ti = i*T
+	S[i] = Math.sin(w*ti)
+    }
+    for(let i=0;i<npts;i++) 
+	console.log(i,"  ",i*T,S[i])
+    console.log("\n\n")
+    const rezu = welchise(S,1)
+    for(let i=0;i<npts/2+1;i++) 
+	console.log(i,"  ",i/T," ",rezu[i])
+    process.exit();
+} // function testAndQuit(npts,w,T) {
+// *************************************************************************
+
+function jsonize(T) {
+    // return the string [T[0],T[1], ...,T[n]]
+    console.log("jsonize entering len(T)= ",T.length)
+    let ans = '{"fft_x1":[' + T.join(",") + '],"f0": 0,"fft_x2": 0,"fft_y2": 0.0} '
+    console.log("jsonize leaving len(ans)= ",ans.length)
+    console.log("jsonize end of ans ",ans.slice(ans.length-20,ans.length-1))
+    return ans
+} // FIN function jsonize(T) {
+// *************************************************************************
