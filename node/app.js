@@ -267,10 +267,17 @@ app.get('/fft/', (req, res)=>{
     var seg = Number(req.query['seg'])
     setLEDstatus(1)
     if (JCFFT) {
+	let freq = TEIs.getModule(TEImodule).AdcSamplingRate*1.0/(data.length/2)
 	console.log("app.get(/fft/) (l 260) javascript welch in progress"); 
 	console.log("length=",data.length,"data[0]=",data[0])
-	let result = welchise(data,seg) // dataToSend is a string
-	let dataToSend = jsonize(welchise(data,seg)) // dataToSend is a string
+	let result = welchise(data,seg) // result is an array
+	let dataToSend = '{"fft_x1":['
+	for(let i=0;i<data.length/2;i++)
+	    dataToSend += 0.5*i*freq+',';
+	dataToSend += 0.5*data.length/2*freq+'],'
+	dataToSend+='"fft_y1":' + jsonize(result)+',\n'
+	dataToSend+='"f0": 0,\n"fft_x2": 0,\n"fft_y2": 0.0}'
+	// writeAndExit(`dataToSend=${dataToSend}`)
 	const ndts=dataToSend.length
 	console.log("app.get(/fft/) (l 278) deb et fin dataToSend ",dataToSend.slice(0,60)," ",dataToSend.slice(ndts-60,ndts-1))
         var mydata = JSON.parse(dataToSend)
@@ -284,9 +291,6 @@ app.get('/fft/', (req, res)=>{
         if (mydata[dataKeys[3]].length != undefined){
 	    fft_X_N=mydata[dataKeys[3]]
 	    fft_Y_N=mydata[dataKeys[4]]     
-        }
-        else{
-	    fft_X_N.length=0; fft_Y_N.length=0
         }
         res.send(dataToSend)
         blinkLEDinterval = setInterval(blinkLEDstatus, 500);
@@ -318,7 +322,7 @@ app.get('/fft/', (req, res)=>{
 		console.log("app.get(/fft/) app.js (l 291) GENERATING FAKE DATA");
 		dataToSend = generatedataToSend()
 	    }
-	    console.log(`app.get(/fft/) app.js (l 290) APRES dataToSend= ${dataToSend}`)
+	    //console.log(`app.get(/fft/) app.js (l 290) APRES dataToSend= ${dataToSend}`)
             // dataTosend -> fft_X et fft_Y pour eventuelle sauvegardesupprime les fichiers
 	    // JC JC JC MODIFICATION DE LA STRING dataToSend POUR VERIFICATION
             var data = JSON.parse(dataToSend)
@@ -337,9 +341,12 @@ app.get('/fft/', (req, res)=>{
             else{
 		fft_X_N.length=0; fft_Y_N.length=0
             }
-            console.log(dataKeys[2], data[dataKeys[2]], 'lengths fft1:', data[dataKeys[0]].length, ' fft2:', data[dataKeys[3]].length )
-            
+            console.log("app.get(/fft/ app.js (l 341)", dataKeys[2], data[dataKeys[2]], 'lengths fft1:', data[dataKeys[0]].length, ' fft2:', data[dataKeys[3]].length )
+	    console.log(fft_X_1)
+            console.log(fft_Y_1)
             // send data to browser
+            // console.log("app.get(/fft/ app.js (l 346) dataToSend:" )
+	    // writeAndExit(`${dataToSend}`)
             res.send(dataToSend)
             blinkLEDinterval = setInterval(blinkLEDstatus, 500);
 	});
@@ -771,12 +778,31 @@ function testAndQuit(npts,w,T) {
 } // function testAndQuit(npts,w,T) {
 // *************************************************************************
 
-function jsonize(T) {
+function jsonizeOld(T) {
     // return the string [T[0],T[1], ...,T[n]]
     console.log("jsonize entering len(T)= ",T.length)
     let ans = '{"fft_x1":[' + T.join(",") + '],"f0": 0,"fft_x2": 0,"fft_y2": 0.0} '
     console.log("jsonize leaving len(ans)= ",ans.length)
     console.log("jsonize end of ans ",ans.slice(ans.length-20,ans.length-1))
     return ans
+} // FIN function jsonizeOld(T) {
+// *************************************************************************
+
+function jsonize(T) {
+    return '[' + T.join(",") + '] '
 } // FIN function jsonize(T) {
+// *************************************************************************
+
+function writeAndExit(message, code = 0) {
+    // utile pour le debbogage
+    const ok = process.stdout.write(message + '\n');
+    if (ok) {
+        process.exit(code);
+    } else {
+        // attendre que le flux soit vidé
+        process.stdout.once('drain', () => {
+            process.exit(code);
+        });
+    }
+} // FIN function writeAndExit(message, code = 0) {
 // *************************************************************************
