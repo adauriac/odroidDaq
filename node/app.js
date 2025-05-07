@@ -178,9 +178,9 @@ app.get('/savefft/', (req, res)=>{
     // sauvegarde de la fft calculée
     // fichier texte 2 colonnes X, Y
     var fftStr='', size = fft_X_1.length
-    console.log(typeof fft_X_1)
-    console.log(`app.get('/savefft/' size=${size} et ${fft_Y_1.length}`)
-    console.log(`fapp.get('/savefft/' fft_X_1[0]=${fft_X_1[0]} fft_Y_1[0]=${fft_Y_1[0]}`)
+    // console.log(typeof fft_X_1)
+    // console.log(`app.get('/savefft/' size=${size} et ${fft_Y_1.length}`)
+    // console.log(`fapp.get('/savefft/' fft_X_1[0]=${fft_X_1[0]} fft_Y_1[0]=${fft_Y_1[0]}`)
     for (let i=0; i!=size; i++ ){
         fftStr += fft_X_1[i].toString() + ' ' + fft_Y_1[i].toString() + '\n'
     }
@@ -269,7 +269,6 @@ app.get('/fft/', (req, res)=>{
     if (JCFFT) {
 	let freq = TEIs.getModule(TEImodule).AdcSamplingRate*1.0/(data.length/2)
 	console.log("app.get(/fft/) (l 260) javascript welch in progress"); 
-	console.log("length=",data.length,"data[0]=",data[0])
 	let result = welchise(data,seg) // result is an array
 	let dataToSend = '{"fft_x1":['
 	for(let i=0;i<data.length/2;i++)
@@ -279,13 +278,11 @@ app.get('/fft/', (req, res)=>{
 	dataToSend+='"f0": 0,\n"fft_x2": 0,\n"fft_y2": 0.0}'
 	// writeAndExit(`dataToSend=${dataToSend}`)
 	const ndts=dataToSend.length
-	console.log("app.get(/fft/) (l 278) deb et fin dataToSend ",dataToSend.slice(0,60)," ",dataToSend.slice(ndts-60,ndts-1))
+	// console.log("app.get(/fft/) (l 278) deb et fin dataToSend ",dataToSend.slice(0,60)," ",dataToSend.slice(ndts-60,ndts-1))
         var mydata = JSON.parse(dataToSend)
-	console.log("app.get(/fft/) (l 281) mydata cree") 
         var dataKeys = [] 
         for (const key in mydata) 
 	    dataKeys.push(key)
-        console.log('app.get(/fft/ app.js (l 296) keys :', dataKeys)	
         fft_X_1=mydata[dataKeys[0]]
         fft_Y_1=mydata[dataKeys[1]]
         if (mydata[dataKeys[3]].length != undefined){
@@ -330,8 +327,6 @@ app.get('/fft/', (req, res)=>{
             for (const key in data) {
 		dataKeys.push(key)
             } 
-            console.log('app.get(/fft/ app.js (l 296) keys :', dataKeys)
-
             fft_X_1=data[dataKeys[0]]
             fft_Y_1=data[dataKeys[1]]
             if (data[dataKeys[3]].length != undefined){
@@ -341,9 +336,6 @@ app.get('/fft/', (req, res)=>{
             else{
 		fft_X_N.length=0; fft_Y_N.length=0
             }
-            console.log("app.get(/fft/ app.js (l 341)", dataKeys[2], data[dataKeys[2]], 'lengths fft1:', data[dataKeys[0]].length, ' fft2:', data[dataKeys[3]].length )
-	    console.log(fft_X_1)
-            console.log(fft_Y_1)
             // send data to browser
             // console.log("app.get(/fft/ app.js (l 346) dataToSend:" )
 	    // writeAndExit(`${dataToSend}`)
@@ -506,6 +498,12 @@ app.post('/set', function (req, res) {
     }
     else if(req.body.val.search('SQwave')!==-1){
         cmd = 'f'; acq_sqWave = (value === 1)
+    }   
+    else if(req.body.val.search('JCBUTTON')!==-1){
+        console.log("app.post(/set  line 511 JCFFT=",JCFFT)
+	JCFFT = !JCFFT
+	res.end()
+	return
     }   
     // si value =1 commande uppercase, lowercase sinon
     if (value ==1)
