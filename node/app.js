@@ -90,11 +90,10 @@ function setLEDstatus( s ) {
  * init des gpios
  * */
 odroidGPIOS.forEach( function( n) {
-    // console.log('GPIO:', n, n.name, n.pin)
+    // consolelog(`GPIO: ${n} ${n.name} ${n.pin)`,10)
     var mygpio = new gpio(n.pin, 'out')
-    //  console.log( typeof mygpio, mygpio)
+    //  consolelog(`${typeof mygpio}, ${mygpio}`,10)
     n.gpio= mygpio
-    
 });
 
 /**************************serveur web ***********************************************/
@@ -124,7 +123,7 @@ app.get('/index/', (req, res)=>{
 app.get('/listSerial/', (req, res)=>{   
     odroidGPIOS.forEach( function( n) {
         // valeur initiale sur les gpios
-        console.log('reinit :', n.name, n.start)
+        consolelog(`reinit : ${n.name} ${n.start}`,10)
         n.gpio.writeSync(n.start)
     })
     consolelog('listSerial',10)
@@ -164,7 +163,6 @@ app.get('/save/', (req, res)=>{
         x = (i++)*periode
         dataStr += x.toString() + ' ' + data[i].toString() + '\n'
     }
-    console.log ('data :', data.length)
     fs.writeFile(fname, dataStr, function (err) {
         if (err) throw err;
         consolelog('Saved!');
@@ -183,7 +181,8 @@ app.get('/savefft/', (req, res)=>{
     }
     var fname = "data/"+name +"_fft_1_" + dateNow + '.dat'
     try{
-        fs.writeFileSync(fname, fftStr ); console.log(fname, 'Saved!');
+        fs.writeFileSync(fname, fftStr );
+	consolelog(`${fname} Saved!`,10);
     }catch (err) {       
         consolelog( err)  
     }
@@ -195,7 +194,8 @@ app.get('/savefft/', (req, res)=>{
         }
         fname = "data/"+name +"_fft_N_" + dateNow + '.dat'
         try {
-            fs.writeFileSync(fname, fftStr );console.log(fname, 'Saved!');
+            fs.writeFileSync(fname, fftStr );
+	    consolelog(`${fname} Saved!`,10);
         }
         catch (err){
             consolelog( err)  
@@ -229,7 +229,7 @@ app.get('/cpuTemp/', (req, res)=>{
     // lit la temperature moyenne du CPU   temp = 
     computeCPUTemp()
         .then((temp) => { 
-            console.log('app.get cpuTemp' , temp );
+            consolelog(`app.get cpuTemp ${temp}`,10);
             res.send({'cpuTemp' : temp });
         })
         .catch((e) => {
@@ -307,7 +307,7 @@ app.get('/fft/', (req, res)=>{
 	});
 	// in close event we are sure that stream from child process is closed
 	python.on('close', (code) => {
-            console.log(`child process close all stdio with code ${code}`);
+            consolelog(`child process close all stdio with code ${code}`,10);
             // dataTosend -> fft_X et fft_Y pour eventuelle sauvegardesupprime les fichiers
             var data = JSON.parse(dataToSend)
             var dataKeys = [] 
@@ -324,7 +324,7 @@ app.get('/fft/', (req, res)=>{
 		fft_X_N.length=0; fft_Y_N.length=0
             }
             // send data to browser
-            // console.log("app.get(/fft/ app.js (l 346) dataToSend:" )
+            // consolelog("app.get(/fft/ app.js (l 346) dataToSend:" )
 	    // writeAndExit(`${dataToSend}`)
             res.send(dataToSend)
             blinkLEDinterval = setInterval(blinkLEDstatus, 500);
@@ -384,24 +384,24 @@ app.get('/upload/',(req, res) => {
 /************************************* requetes POST *********************************/
 
 app.post('/', function (req, res) {
-    console.log(`* ${req.body}`,20);
+    consolelog(`* ${req.body}`,10);
     res.end();
 })
 
 //// reponse à la requete 'initSerial?'
 app.post('/initSerial', function (req, res) {
-    console.log('initSerial',req.body.val);
+    consolelog(`initSerial ${req.body.val}`);
     // initialisation de la liaison serie vers le daq3
     daq3.initSerial(req.body.val).then(
         (id) => {
-            console.log('id', id)
+            consolelog(`id ${id}`,10)
             //renvoie l'id du daq3
             TEImodule= id
-            console.log(TEIs.getModule(id))
+            consolelog(TEIs.getModule(id),10)
             res.send(TEIs.getModule(id));
             fillGainCommand(TEIs.getModule(id))
             // place le daq3 dans une config connue
-            console.log(daq3.setup());
+            consolelog(`${daq3.setup()}`,10);
             daq3.initParser()
         }
     )
@@ -427,14 +427,13 @@ app.post('/dateset', function (req, res) {
     let min= dateTime.getMinutes() 
     let updateD = `${year}-${month}-${day} ${hour}:${min}` //Format the string correctly
     
-    console.log('setdate',req.body.val, updateD);
+    consolelog(`setdate ${req.body.val} ${updateD}`,10);
     // lancement du script bash 'setDate.sh'
     exec(`/usr/local/bin/setDate.sh "${updateD}"`, (err, stdout, stderr) => {
         if (err || stderr) {
             console.error('err', err);
             consolelog(`log ${stderr}`);
         } else {
-            //  console.log(stdout);
             consolelog("Successfully set the system's datetime" );///to ${stdout}`);
         }
     })
@@ -447,10 +446,9 @@ app.post('/gain', function (req, res) {
     // gain programmable DAQ3
     // affiche la commande -> la valeur du gain
     acq_gain = gainValues[req.body.val -1]
-    console.log('gain', req.body.val, '->', acq_gain);
+    consolelog(`gain ${req.body.val} -> ${acq_gain}`,10);
     //envoie la commande au daq3
     daq3.setParameter(req.body.val.toString()).then( ()=>{ return acq_gain })
-    
     res.end();
 }) 
 
@@ -460,21 +458,21 @@ app.post('/extgain', function (req, res) {
     // gain externe
     // affiche la commande -> la valeur du gain
     acq_extgain = req.body.val 
-    console.log('extgain=', req.body.val, '-> gain=', acq_extgain * acq_gain);
+    consolelog(`extgain=' ${req.body.val} -> gain= ${acq_extgain} * ${acq_gain}`,10);
     //envoie la commande au daq3
     // daq3.setParameter(req.body.val.toString()).then( ()=>{ return acq_gain })
     res.end();
 })     
 
 app.post('/', function (req, res) {
-    console.log('*',  req.body);
+    consolelog(`* ${req.body}`,10);
     res.end();
 })
 
 //// reponse à la requete 'set'
 // changement de la valeur d'une variable du daq3'
 app.post('/set', function (req, res) {
-    console.log('set', req.body.val);
+    consolelog(`set ${req.body.val}`);
     var value = Number( req.body.val.substring( req.body.val.indexOf('=') +1 ))
     if (req.body.val.search('highZ')!==-1){
         cmd = 'h'; acq_highZ = (value === 1)
@@ -486,7 +484,7 @@ app.post('/set', function (req, res) {
         cmd = 'f'; acq_sqWave = (value === 1)
     }   
     else if(req.body.val.search('JCBUTTON')!==-1){
-        console.log("app.post(/set  line 511 JCFFT=",JCFFT)
+        consolelog(`app.post(/set  line 511 JCFFT=${JCFFT}`)
 	JCFFT = !JCFFT
 	res.end()
 	return
@@ -495,7 +493,7 @@ app.post('/set', function (req, res) {
     if (value ==1)
         cmd = cmd.toUpperCase()
     
-    console.log('set', cmd)
+    consolelog(`set ${cmd}`,10)
     //envoie la commande au daq3
     daq3.setParameter(cmd).then( ()=>{ return 'done' ; })
 
@@ -505,7 +503,7 @@ app.post('/set', function (req, res) {
 //// reponse à la requete 'gpio'
 // change l'etat d'une gpio de l'odroid
 app.post('/gpio', function (req, res) {
-    console.log('gpio', req.body.val);
+    consolelog(`gpio ${req.body.val}`,10);
     // req.body.val de la forme 'ACDC=1'
     var name = req.body.val.substring(0, req.body.val.indexOf('=') )
     var value = Number( req.body.val.substring( req.body.val.indexOf('=') +1 ))
@@ -519,13 +517,12 @@ app.post('/gpio', function (req, res) {
         if (value ===1) acq_gainX10 = 50
     else  acq_gainX10 = 5 
 
-    console.log(name, value)
-    var theGpio  = odroidGPIOS.find( element => element.name === name    )
-    //console.log('found :', theGpio)
+    consolelog(`${name} ${value}`,10)
+    var theGpio  = odroidGPIOS.find( element => element.name === name )
     if (theGpio===undefined)
         res.end()
 
-    console.log('set gpio ',theGpio.name, theGpio.pin , value)
+    consolelog(`set gpio ${theGpio.name} ${theGpio.pin}  ${value}`,10)
     // changement
     theGpio.gpio.writeSync( value )
 
@@ -537,19 +534,18 @@ app.post('/samples', function (req, res) {
     // modif du nombre d'echantillons à prendre
     // utilisés lors de l'acquisition
     acq_samples= req.body.val
-    console.log('anonymous post(/samples) app.js (l 516) samples acq_samples', acq_samples);
     res.end();
 })  
 
 //// reponse à la requete 'delfile'
 app.post('/delfile', function (req, res) {
-    console.log('del',  req.body);      
+    consolelog(`del ${req.body}`,10);      
     res.send({'deleted' :  files.delete(req.body.val) });
 })
 
 //// reponse à la requete 'quit'
 app.post('/quit', function (req, res) {
-    console.log('quit',  req.body);
+    consolelog(`quit ${req.body}`,10);
     quit()
     res.end();
 })
@@ -563,18 +559,17 @@ function fillGainCommand(data){
     // remplit la liste des commandes de gain        gain : gain,
 
     var key, keys = Object.keys(data)
-    console.log('keys', keys)
+    consolelog(`keys ${keys}`,10)
     //vide gainCmd
     while (gainValues.length)
         gainValues.pop()
     //le remplit
     for (var i=0; i!= keys.length; i++){
-        // console.log( i, keys[i])
         if ((keys[i].search(/^gain\s\d/)!== -1)){///|| (keys[i].search(/^gain\s\d\.\d{1,2}$/)!== -1)
             gainValues.push( (keys[i].substring( keys[i].indexOf(' ') +1))); 
         }
     }
-    console.log( 'gainValues:', gainValues);
+    consolelog( `gainValues: ${gainValues}`,10);
 } // FIN function fillGainCommand(data){
 /**************************************************************************/
 
@@ -595,7 +590,6 @@ async function computeCPUTemp() {
         await getCpuTemp(cmd)
             .then((temp) => {
                 cpuTemp += temp;
-                //   console.log('+=', cpuTemp);
             })
             .catch((err) => {
                 error =true;
@@ -604,7 +598,6 @@ async function computeCPUTemp() {
     if (error === true)
         return(-1);
     else {
-        // console.log('comp resolve', cpuTemp);
         //moyenne
         cpuTemp = cpuTemp / 5 ;
         // /1000 pour l'avoir en degréC
@@ -623,13 +616,11 @@ function getCpuTemp( cmd){
         var temp=0, error =false, ended =false;
         const script= exec(cmd);
         script.stdout.on('data', function(data){
-            //console.log(cmd, data.toString());
             //temperature en 1/1000 de degrés
             temp =parseInt(data)
         })
         // what to do with data coming from the standard error
         script.stderr.on('data', function(data){
-            // console.log('err', data.toString()); 
             error= true;
         });
         script.on('exit', function (code) {
@@ -640,7 +631,6 @@ function getCpuTemp( cmd){
             if (error === true)
                 reject(error);
             else {
-                // console.log('get resolve', temp);
                 resolve( temp) ;
             }
         });
@@ -653,17 +643,10 @@ function quit() {
 /**
  * pour quitter, et arretere proprement l'odroid
  */
-    console.log( 'function quit');
+    consolelog( 'function quit',10);
     // lancement du script bash
     spawn ("/bin/sh", ['-c', `/usr/local/bin/shutDown.sh`]);
 } // FIN function quit() { 
-/* *********************************************************************************** */
-
-function welchiseFake(data,nSeg) {
-    console.log(`welchise : data.length=${data.length} data=${data[0]},${data[1]},.., ${data[data.length-1]}`)
-    console.log(`welchise : nSeg=${nSeg}`)
-    return generatedataToSend()
-}; // FIN function welchiseFake(data,nSeg) {
 /* *********************************************************************************** */
 
 function welchise(input,nSeg) {
@@ -675,8 +658,8 @@ function welchise(input,nSeg) {
     // si l'echantillon initial est de taille 2**k et qu'il y a 2 segments alors
     // segments 1 de 0 a 2**(k-1)
 
-    console.log(`# welchise : input.length=${input.length} input=${input[0]},${input[1]},.., ${input[input.length-1]}`)
-    console.log(`# welchise : nSeg=${nSeg}`)
+    consolelog(`# welchise : input.length=${input.length} input=${input[0]},${input[1]},.., ${input[input.length-1]}`,10)
+    consolelog(`# welchise : nSeg=${nSeg}`,10)
     const hannise = 0
     let verbose= 0
     // return generatedataToSend()
@@ -694,13 +677,13 @@ function welchise(input,nSeg) {
     f.realTransform(output, input);
     if (verbose)
 	for(let i=0;i<n;i+=2) 
-	    console.log("fft",i/2,output[i],output[i+1])
+	    consolelog(`fft ${i/2} ${output[i]} ${output[i+1]}`,10)
     const result = new Array(m)
     for(let i=0;i<m;i++) 
 	result[i] = output[2*i]*output[2*i]  + output[2*i+1]*output[2*i+1] 
     if (verbose)
 	for(let i=0;i<m;i++) 
-	    console.log(`result[${i}]= ${result[i]}`)
+	    consolelog(`result[${i}]= ${result[i]}`,10)
     return result
 }  // FIN function welchise(input,nSeg) {
 /* *********************************************************************************** */
@@ -732,10 +715,8 @@ function segmentise(n,k) {
     npsHalf = 2**(n-k-1)
     nbs = 2**(k+1)-1
     cur = 0
-    // console.log("N=",N," #pts per segment=",nps," nb segments=",nbs)
     let res = [];
     for (let i=0;i<nbs;i++) {
-	// console.log(i,cur,cur+nps)
 	res.push([cur,cur+nps])
 	cur = cur + npsHalf
     }
@@ -753,23 +734,13 @@ function testAndQuit(npts,w,T) {
 	S[i] = Math.sin(w*ti)
     }
     for(let i=0;i<npts;i++) 
-	console.log(i,"  ",i*T,S[i])
-    console.log("\n\n")
+	consolelog(`${i} ${i*T} ${S[i]}`,10)
+    consolelog("\n\n",10)
     const rezu = welchise(S,1)
     for(let i=0;i<npts/2+1;i++) 
-	console.log(i,"  ",i/T," ",rezu[i])
+	consolelog(`${i}  ${i/T} ${rezu[i]}`,10)
     process.exit();
 } // function testAndQuit(npts,w,T) {
-// *************************************************************************
-
-function jsonizeOld(T) {
-    // return the string [T[0],T[1], ...,T[n]]
-    console.log("jsonize entering len(T)= ",T.length)
-    let ans = '{"fft_x1":[' + T.join(",") + '],"f0": 0,"fft_x2": 0,"fft_y2": 0.0} '
-    console.log("jsonize leaving len(ans)= ",ans.length)
-    console.log("jsonize end of ans ",ans.slice(ans.length-20,ans.length-1))
-    return ans
-} // FIN function jsonizeOld(T) {
 // *************************************************************************
 
 function jsonize(T) {

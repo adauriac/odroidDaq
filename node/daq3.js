@@ -17,7 +17,7 @@ var signalLength=0, acqiDone =false
 var eventEmitter = new events.EventEmitter();
 var acquisitionDone = function () {
     acqiDone = true
-    console.log('acqDone', acqiDone);
+    console.log(`acqDone ${acqiDone}`,10);
 }  // FIN acquisitionDone(
 eventEmitter.on('acqDone', acquisitionDone );//Assign the event handler to an event:
 
@@ -25,6 +25,7 @@ function getAcqDone(){
     return acqiDone
 }  // FIN function getAcqDone(
 /**********************************************************************/
+
 function initParser() {  
     //quand on a reçu toutes les datas souhaitées par paquets de 16k (* la taille d'un element)
     //nbBytes nbre de caracteres reçus par valeur : 16 bits -> nbBytes =4, 18 ou 20 bits -> 5
@@ -32,7 +33,7 @@ function initParser() {
     parser = sp.pipe(new ByteLengthParser({ length: 16384 * nbBytes }))
     parser.on('data', function (data) {
         const startParserFunction = performance.now(); // JC 
-        console.log('initParser daq3.js (l 37) Received acceptable data!', typeof signal,  data.length )
+        consolelog(`initParser daq3.js (l 37) Received acceptable data! ${typeof signal}  ${data.length}`,10 )
         // positive values reach from 0 to AdcTreshold, 
         // negatives values from AdcTreshold to AdcTreshold*2 
         var threshold = TEIs.getModule(moduleID).AdcTreshold
@@ -42,7 +43,6 @@ function initParser() {
             // mid scale is 0x8000 / 32768 and pos full scale is 0xffff / 65536
             threshold = 0; maxInt = TEIs.getModule(moduleID).AdcTreshold; 
         }
-        console.log('initParser daq3.js (l 47) nbbyte:',nbBytes,'thrsh :', threshold, 'maxint:', maxInt)
         var min=0x3ffff, max =0
         //les données arrivent en ascii !  p.ex. : '0','1','A','B','F' pour  0x01ABF
         const start = performance.now(); // JC
