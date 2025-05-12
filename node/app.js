@@ -1,8 +1,14 @@
 const PORT = 3000;
 const serverVersion = '20230509';
-let JCFFT=1 // to use either the pld python version or the new js version (JCFFT->new javascript)
 // version adaptée à l'ampli diff_JFE2140
 // gain 5/50, gpio led
+
+let JCFFT = 1 // to use either the pld python version or the new js version (JCFFT->new javascript)
+let JC = 1
+// const verboseThresholdGlobal = Number.MAX_SAFE_INTEGER // never printed 
+const verboseThresholdGlobal = 2 // 0->always printed, Number.MAX_SAFE_INTEGER->never printed 
+// plus verboseThresholdGlobal est BAS plus on affiche
+module.exports = { verboseThresholdGlobal,consolelog,JC }
 
 // pour la comm avec daq3
 const daq3 = require('./daq3.js');
@@ -13,7 +19,7 @@ const gpio = require("onoff").Gpio
 // pour la manipulation de fichiers statiques
 const path = require('path')
 var fs = require('fs');
-var FFT = require('./lib/fft.js') // JC ??????????????????????????????????????????????????????
+var FFT = require('./lib/fft.js') // JC ?????????????????
 //les pages web sont dans le dossier 'web'
 var express = require('express');
 const { parseArgs } = require('util');
@@ -56,7 +62,7 @@ var fft_X_N= new Float64Array(), fft_Y_N= new Float64Array()
 /*                      POUR TESTER WELCH                                */
 /* ********************************************************************* */
 
-console.log("# flag JCFFT=",JCFFT)
+consolelog(`# flag JCFFT=${JCFFT}`)
 if (0)
     testAndQuit(128,5,1./10) // testAndQuit(npts,w,T) signal = sin(w*t) echatillonne a 0,T,2*T,...,(npts-1)*T 
 /**************************************************************************/
@@ -90,25 +96,23 @@ odroidGPIOS.forEach( function( n) {
     n.gpio= mygpio
     
 });
-// console.log('GPIOS :',odroidGPIOS)
 
 /**************************serveur web ***********************************************/
 
 // demarrage du serveur web 'express'
 app.listen(PORT, (error) =>{
     if(!error) 
-        console.log("Server v"+ serverVersion +"is Successfully Running, and App is listening on port "+ PORT); //console.log(TEI.length)
+        consolelog(`Server ${serverVersion} is Successfully Running, and App is listening on port ${PORT}`); 
     else 
-        console.log("Error occurred, server can't start", error);
+        consolelog(`Error occurred, server can't start error= ${error}`);
 });
 
 /******************************** requetes GET ***************************************/
 
 //// sert la page par defaut odroidDaqweb/index.html
 app.get('/', (req, res)=>{  
-    console.log('/', req)  
+    consolelog(`/${req}`,10)  
     res.sendFile('/index.html');
-    
 });
 
 //// sert les pages index.*
@@ -123,10 +127,9 @@ app.get('/listSerial/', (req, res)=>{
         console.log('reinit :', n.name, n.start)
         n.gpio.writeSync(n.start)
     })
-    console.log('listSerial')
+    consolelog('listSerial',10)
     daq3.getSerialPortList().then (
         (list)=> {
-            console.log('list:',list)
             //renvoie la liste des ports serie
             res.json({'serial' :list});
         } )
@@ -134,7 +137,6 @@ app.get('/listSerial/', (req, res)=>{
 
 //// reponse à la requete 'aquire'
 app.get('/acquire/', (req, res)=>{   
-    console.log('app.js l 130: acquire')
     clearInterval(blinkLEDinterval);
     setLEDstatus(1)
     // lance l'acqui ur le daq3
@@ -145,7 +147,6 @@ app.get('/acquire/', (req, res)=>{
 //// reponse à la requete 'save'
 app.get('/save/', (req, res)=>{   
     var name= req.query['f']
-    console.log('save', name) 
     var fname = "data/"+name +"_sig_" +Date.now() + '.dat'    
     // sauvegarde des données temporelles acquises
     var gain = acq_gain
@@ -166,7 +167,7 @@ app.get('/save/', (req, res)=>{
     console.log ('data :', data.length)
     fs.writeFile(fname, dataStr, function (err) {
         if (err) throw err;
-        console.log('Saved!');
+        consolelog('Saved!');
     })
     res.send({'fname' :fname});
 });
@@ -174,13 +175,9 @@ app.get('/save/', (req, res)=>{
 //// reponse à la requete 'savefft'
 app.get('/savefft/', (req, res)=>{   
     var name= req.query['f'], dateNow = Date.now()
-    console.log('savefft', name)
     // sauvegarde de la fft calculée
     // fichier texte 2 colonnes X, Y
     var fftStr='', size = fft_X_1.length
-    // console.log(typeof fft_X_1)
-    // console.log(`app.get('/savefft/' size=${size} et ${fft_Y_1.length}`)
-    // console.log(`fapp.get('/savefft/' fft_X_1[0]=${fft_X_1[0]} fft_Y_1[0]=${fft_Y_1[0]}`)
     for (let i=0; i!=size; i++ ){
         fftStr += fft_X_1[i].toString() + ' ' + fft_Y_1[i].toString() + '\n'
     }
@@ -188,7 +185,7 @@ app.get('/savefft/', (req, res)=>{
     try{
         fs.writeFileSync(fname, fftStr ); console.log(fname, 'Saved!');
     }catch (err) {       
-        console.log( err)  
+        consolelog( err)  
     }
     // si on a fait une fft avec seg>1 on a 2 ffts
     if (fft_X_N.length ){
@@ -201,7 +198,7 @@ app.get('/savefft/', (req, res)=>{
             fs.writeFileSync(fname, fftStr );console.log(fname, 'Saved!');
         }
         catch (err){
-            console.log( err)  
+            consolelog( err)  
         }
     }
     res.send({'fname' :fname});
@@ -210,7 +207,6 @@ app.get('/savefft/', (req, res)=>{
 //// reponse à la requete 'data'
 // recup de données temporelles dans le daq3
 app.get('/data/', (req, res)=>{   
-    console.log('getData')
     var gain = acq_gain
     if (acq_spanComp)
         gain = acq_gain / 0.8  
@@ -224,7 +220,7 @@ app.get('/time/', (req, res)=>{
     var timestamp = Date.now()
     var theTime = new Date(timestamp)
     // renvoie la date courante de l'odroid  
-    console.log('app.get time' , theTime );
+    consolelog(`app.get time= ${theTime}`);
     res.send({'time' :theTime.toJSON()});
 });
 
@@ -237,14 +233,14 @@ app.get('/cpuTemp/', (req, res)=>{
             res.send({'cpuTemp' : temp });
         })
         .catch((e) => {
-            console.log(e);
+            consolelog(e);
         });
 });
 
 //// reponse à la requete 'done?'
 app.get('/done?/', (req, res)=>{    
     var stat=  daq3.getAcqDone()
-    console.log('acqDone' ,stat )
+    consolelog(`acqDone ${stat}`,10)
     if (stat === false)
         blinkLEDstatus()
     else
@@ -257,7 +253,6 @@ app.get('/done?/', (req, res)=>{
 // lance un calcul de fft sur les données acquises
 app.get('/fft/', (req, res)=>{   
     // lance le calcul de la fft (progamme python : welch() )
-    console.log('app.js anonyme (app.get(/fft/) (l 250) getFFT')
     var gain = acq_gain
     if (acq_spanComp)
         gain = acq_gain / 0.8  
@@ -268,7 +263,7 @@ app.get('/fft/', (req, res)=>{
     setLEDstatus(1)
     if (JCFFT) {
 	let freq = TEIs.getModule(TEImodule).AdcSamplingRate*1.0/(data.length/2)
-	console.log("app.get(/fft/) (l 260) javascript welch in progress"); 
+	consolelog("app.get(/fft/) (l 267) javascript welch in progress",10); 
 	let result = welchise(data,seg) // result is an array
 	let dataToSend = '{"fft_x1":['
 	for(let i=0;i<data.length/2;i++)
@@ -278,7 +273,6 @@ app.get('/fft/', (req, res)=>{
 	dataToSend+='"f0": 0,\n"fft_x2": 0,\n"fft_y2": 0.0}'
 	// writeAndExit(`dataToSend=${dataToSend}`)
 	const ndts=dataToSend.length
-	// console.log("app.get(/fft/) (l 278) deb et fin dataToSend ",dataToSend.slice(0,60)," ",dataToSend.slice(ndts-60,ndts-1))
         var mydata = JSON.parse(dataToSend)
         var dataKeys = [] 
         for (const key in mydata) 
@@ -302,26 +296,19 @@ app.get('/fft/', (req, res)=>{
 	// spawn new child process to call the python script
 	const python = spawn('python3', pythonCmd )
 	// collect data from script
-	console.log ("app.get(/fft/) app.js (l 264) : pythonCmd=",pythonCmd)
+	consolelog (`app.get(/fft/) app.js (l 300) : pythonCmd=${pythonCmd}`,10)
 	python.stdout.on('data', function (data) {
             // recupere 2 tableaux {f, Pxx_den}
-            console.log(`app.get(/fft/) app.js (l 267) : Pipe data from python script ... data.length=`, data.length);
-	    // ICI JE METS DES VALEURS FAKE
+            consolelog(`app.get(/fft/) app.js (l 267) : Pipe data from python script ... data.length= ${data.length}`,10);
             dataToSend += data.toString();
 	});
 	python.stderr.on('data', function (data) {
-            console.log('app.get(/fft/ app.js (l 273) stderr data.toString()=', data.toString());
+            consolelog(`app.get(/fft/ app.js (l 307) stderr data.toString()= ${data.toString()}`,10);
 	});
 	// in close event we are sure that stream from child process is closed
 	python.on('close', (code) => {
             console.log(`child process close all stdio with code ${code}`);
-	    if (0) {
-		console.log("app.get(/fft/) app.js (l 291) GENERATING FAKE DATA");
-		dataToSend = generatedataToSend()
-	    }
-	    //console.log(`app.get(/fft/) app.js (l 290) APRES dataToSend= ${dataToSend}`)
             // dataTosend -> fft_X et fft_Y pour eventuelle sauvegardesupprime les fichiers
-	    // JC JC JC MODIFICATION DE LA STRING dataToSend POUR VERIFICATION
             var data = JSON.parse(dataToSend)
             var dataKeys = [] 
             for (const key in data) {
@@ -342,8 +329,8 @@ app.get('/fft/', (req, res)=>{
             res.send(dataToSend)
             blinkLEDinterval = setInterval(blinkLEDstatus, 500);
 	});
-	console.log('app.get(/fft/) app.js (l 311) write data in python script...')    
-	console.log ("app.get(/fft/) app.js (l 310) JSON.stringify(data)=",JSON.stringify(data).slice(0,200)) 
+	consolelog('app.get(/fft/) app.js (l 333) write data in python script...',10)    
+	consolelog (`app.get(/fft/) app.js (l 310) JSON.stringify(data)= ${JSON.stringify(data).slice(0,200)}`,20) 
 	/* Stringify the array before send to py_process */
 	python.stdin.write(JSON.stringify(data) )
 	/* Close the stream */
@@ -364,17 +351,16 @@ app.get("/listDir/", (req, res)=> {
 //route to download a file
 app.get('/upload/',(req, res) => {
     var directoryPath = path.join(__dirname, '..', 'data');  
-    //  console.log('UPLOAD res :',res)
     var file = req.query['f'];
     var files = file.split(',')
     if (files.length === 1) {
         // un seul fichier a envoyer
         var fileLocation = path.join(directoryPath,file);
-        console.log(fileLocation);
+        consolelog(fileLocation,10);
         res.download(fileLocation, file, 
                      function(err) {
                          if(err) {
-                             console.log(err);
+                             consolelog(err);
                          }
                      } )
     }
@@ -388,7 +374,7 @@ app.get('/upload/',(req, res) => {
         //crée le fichier zip
         zip.generateAsync({type:"base64"}).then(function (content) { // 1) generate the zip file
             FileSaver.saveAs(content, 'out.zip')  
-            console.log('zip-> out.zip')
+            consolelog('zip-> out.zip',10)
             res.send({'zip':'out.zip'})
         });
     }
@@ -398,7 +384,7 @@ app.get('/upload/',(req, res) => {
 /************************************* requetes POST *********************************/
 
 app.post('/', function (req, res) {
-    console.log('*',  req.body);
+    console.log(`* ${req.body}`,20);
     res.end();
 })
 
@@ -425,7 +411,7 @@ app.post('/initSerial', function (req, res) {
 //// reponse à la requete 'closeSerial?'
 app.post('/closeSerial', function (req, res) {
     // arret du port serie
-    console.log('closeSerial');
+    consolelog('closeSerial',20);
     daq3.closeSerial()
     res.end();
 })
@@ -446,10 +432,10 @@ app.post('/dateset', function (req, res) {
     exec(`/usr/local/bin/setDate.sh "${updateD}"`, (err, stdout, stderr) => {
         if (err || stderr) {
             console.error('err', err);
-            console.log('log',stderr);
+            consolelog(`log ${stderr}`);
         } else {
             //  console.log(stdout);
-            console.log("Successfully set the system's datetime" );///to ${stdout}`);
+            consolelog("Successfully set the system's datetime" );///to ${stdout}`);
         }
     })
     res.end();
@@ -803,4 +789,12 @@ function writeAndExit(message, code = 0) {
         });
     }
 } // FIN function writeAndExit(message, code = 0) {
+// *************************************************************************
+
+function consolelog(message,verbose=Number.MAX_SAFE_INTEGER-1) {
+    // without argument -> ALWAYS printed
+    // to ensure NO printing use verboseThresholdGlobal=Number.MAX_SAFE_INTEGER
+    if (verbose >= verboseThresholdGlobal)
+	console.log(message)
+}  // FIN function consolelog(message,verbose=0) {
 // *************************************************************************

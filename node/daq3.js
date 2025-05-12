@@ -1,8 +1,8 @@
 // daq3.js
 // liaison avec le module DAQ3 via la liaison serie
+const { consolelog,verboseThresholdGlobal,JC } = require('./app.js');
 const daq3Version = '20221103';
-const JC=1
-console.log("# flag JC= ",JC)
+consolelog(`# flag JC= ${JC}`)
 const serialport = require("serialport");
 var sp, SerialPort = serialport.SerialPort;
 var events = require('events');
