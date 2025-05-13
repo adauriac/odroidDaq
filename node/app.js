@@ -6,7 +6,7 @@ const serverVersion = '20230509';
 let JCFFT = 1 // to use either the pld python version or the new js version (JCFFT->new javascript)
 let JC = 1
 // const verboseThresholdGlobal = Number.MAX_SAFE_INTEGER // never printed 
-const verboseThresholdGlobal = 2 // 0->always printed, Number.MAX_SAFE_INTEGER->never printed 
+const verboseThresholdGlobal = 11 // 0->always printed, Number.MAX_SAFE_INTEGER->never printed  printed if verbose>=verboseThresholdGlobal
 // plus verboseThresholdGlobal est BAS plus on affiche
 module.exports = { verboseThresholdGlobal,consolelog,JC }
 
@@ -340,6 +340,7 @@ app.get('/fft/', (req, res)=>{
 	consolelog (`app.get(/fft/) app.js (l 310) JSON.stringify(data)= ${JSON.stringify(data).slice(0,200)}`,20) 
 	/* Stringify the array before send to py_process */
 	python.stdin.write(JSON.stringify(data) )
+	consolelog(`app.get(/fft (l 343) welch en python ${data[0]} ${data[1]} ${data[2]}`,15) 
 	/* Close the stream */
 	python.stdin.end();
     } // fin else de if (JCFFT)
@@ -397,7 +398,7 @@ app.post('/', function (req, res) {
 
 //// reponse à la requete 'initSerial?'
 app.post('/initSerial', function (req, res) {
-    consolelog(`initSerial ${req.body.val}`);
+    consolelog(`initSerial ${req.body.val}`,10);
     // initialisation de la liaison serie vers le daq3
     daq3.initSerial(req.body.val).then(
         (id) => {
@@ -418,7 +419,7 @@ app.post('/initSerial', function (req, res) {
 //// reponse à la requete 'closeSerial?'
 app.post('/closeSerial', function (req, res) {
     // arret du port serie
-    consolelog('closeSerial',20);
+    consolelog('closeSerial',10);
     daq3.closeSerial()
     res.end();
 })
@@ -441,7 +442,7 @@ app.post('/dateset', function (req, res) {
             console.error('err', err);
             consolelog(`log ${stderr}`);
         } else {
-            consolelog("Successfully set the system's datetime" );///to ${stdout}`);
+            consolelog("Successfully set the system's datetime",10 );///to ${stdout}`);
         }
     })
     res.end();
@@ -665,8 +666,8 @@ function welchise(input,nSeg) {
     // si l'echantillon initial est de taille 2**k et qu'il y a 2 segments alors
     // segments 1 de 0 a 2**(k-1)
 
-    consolelog(`# welchise : input.length=${input.length} input=${input[0]},${input[1]},.., ${input[input.length-1]}`,10)
-    consolelog(`# welchise : nSeg=${nSeg}`,10)
+    consolelog(`# welchise : input.length=${input.length} input=${input[0]},${input[1]},.., ${input[input.length-1]}`,15)
+    consolelog(`# welchise : nSeg=${nSeg}`,5)
     const hannise = 0
     let verbose= 0
     // return generatedataToSend()

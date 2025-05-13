@@ -17,7 +17,7 @@ var signalLength=0, acqiDone =false
 var eventEmitter = new events.EventEmitter();
 var acquisitionDone = function () {
     acqiDone = true
-    console.log(`acqDone ${acqiDone}`,10);
+    consolelog(`acqDone ${acqiDone}`,10);
 }  // FIN acquisitionDone(
 eventEmitter.on('acqDone', acquisitionDone );//Assign the event handler to an event:
 
@@ -47,7 +47,7 @@ function initParser() {
         //les données arrivent en ascii !  p.ex. : '0','1','A','B','F' pour  0x01ABF
         const start = performance.now(); // JC
         if (JC==1) {
-            console.log("a la JC")
+            consolelog(`a la JC`,10)
             for (let k = 0; k < Math.trunc(data.length/5) ; k++) {// JC
                 let i = 5*k;// JC
                 let x0 = data[i+0]<=57 ? data[i+0]-48 : data[i+0]-55;// JC
@@ -64,7 +64,7 @@ function initParser() {
                 signal.push(value)// JC
             }// JC
         } else {
-            console.log("a la pas JC")
+            consolelog(`a la pas JC`,10)
             for( var i=0; i < data.length; i+=nbBytes){
                 // mots de 20 bits 
                 var value = parseInt(data.subarray(i, i+nbBytes), 16)      
@@ -77,15 +77,15 @@ function initParser() {
             }
         }
         const end = performance.now(); // JC
-        console.log(`Temps d'exécution conversion dans initParser JC: ${(end - start).toFixed(3)} ms`);// JC
+        consolelog(`Temps d'exécution conversion dans initParser JC: ${(end - start).toFixed(3)} ms`,10);// JC
 
         if (signal.length === signalLength) // signalLength est une variable globale affectee dans dataCollect
             //envoie un signal de fin d'acquisition
             eventEmitter.emit('acqDone'); // qui declancher un appel a la fonction acquistionDone
 
-        console.log("initParser daq3.js(l 88) signal length ", signal.length, " min:", min.toString(16), " max:", max.toString(16))
+        consolelog(`initParser daq3.js(l 88) signal length ${signal.length} min: ${min.toString(16)} max: ${max.toString(16)}`,10)
         const endParserFunction = performance.now(); // JC 
-        console.log(`Temps d'exécution total dans initParser JC: ${(endParserFunction - startParserFunction).toFixed(3)} ms`);// JC
+        consolelog(`Temps d'exécution total dans initParser JC: ${(endParserFunction - startParserFunction).toFixed(3)} ms`,10);// JC
     }) // FIN fonction de parser.on JC
 } // FIN function initParser()
 /********************************************************************************************/
@@ -106,7 +106,6 @@ function getSerialPortList(){
                 var serPort = new Object();
                 serPort.id = port.manufacturer;
                 serPort.path= port.path;
-                //          console.log(serPort)
                 serports.push(serPort);
                 
             })
@@ -124,7 +123,7 @@ function getSerialPortList(){
  */
 function dataConvert(s, gain){
     //convertit les données temporelles reçues en Volts selon le type de carte (moduleID)
-    console.log('moduleID=',moduleID,' dataConvert gain:', gain, s.length)
+    consolelog(`moduleID= ${moduleID}' dataConvert gain: ${gain} {s.length}`,10)
 
     var maxInt = TEIs.getModule(moduleID).AdcTreshold *2
     
@@ -167,7 +166,7 @@ function dataConvert(s, gain){
  */
 function initSerial(port){
     //initialise le port choisi
-    console.log('daq3.initSerial', port);
+    consolelog(`daq3.initSerial ${port}`,10);
     return new Promise( function(resolve, reject){
         try {
             sp = new SerialPort({ path: port, 
@@ -177,20 +176,18 @@ function initSerial(port){
                                   parity : 'none'})
 
             sp.on("open", function () {
-
                 selectedPort=port;
                 sp.write("?", function(err, results) {
-                    console.log("on open err: " + err);
-                    console.log("on open results: " + results);
+                    consolelog(`on open err: ${err}`,10);
+                    consolelog(`on open results: ${results}`,10);
                 })
                 
             }) 
             sp.on("data", function(data) {
                 // les seules datas qu'on reçoit sont les données brutes du signal
-                //   console.log("data received: ", data )//+ " " + signal.length) ;
                 if ((data.length === 1)&&(moduleID===0)){
                     moduleID = parseInt(data[0]) -48
-                    console.log("data received: ", data[0] , moduleID)
+                    consolelog(`data received: ${data[0]} ${moduleID}`,10)
                 }
                 resolve (data)
             } )
@@ -220,7 +217,7 @@ function closeSerial(){
  */
 function setup(){
     //init la carte daq3
-    console.log('setup fhs1')
+    consolelog(`setup fhs1`,10)
     // config de base gain = 1 (le plus faible), sqWave = false, hiZ= false, spanComp=false;
     // sp.write('f')//.then( () => {
     //     sp.write('h')//.then( () => {
@@ -253,8 +250,8 @@ function setParameter(data){
         try {
             sp.write(data
                      , function(err, results) {
-                         //  console.log("SP err: " + err);
-                         //  console.log("SP results: " + results);
+                         //  consolelog(`SP err: ${err)}`,10);
+                         //  consolelog(`SP results: ${results}`,10);
                      })
             sp.drain()
             resolve()
@@ -275,9 +272,9 @@ function getData(samples){
     // lit les données acquises
     const parser = port.pipe(new BytelengthParser({ length : samples }));
     parser.on('data', function(data) {
-        console.log('get...')
+        consolelog('get...',10)
         var bits = data;
-        console.log(bits);
+        consolelog(bits,10);
         return bits
     });
 } // FIN function getData(
@@ -291,38 +288,38 @@ function dataCollect(adcSamples){
     //lance l'acqisition du signal temporel
     // nombre de données souhaitées
     signalLength = adcSamples * 1024
-    console.log('dataCollect entering (daq3.js l 297) adcSamples', adcSamples, 'signal.length=',signal.length, 'signalLength=',signalLength, 'acqiDone=',acqiDone)
+    consolelog(`dataCollect entering (daq3.js l 297) adcSamples= ${adcSamples} signal.length=${signalLength} acqiDone=${acqiDone}`,10)
     acqiDone = false
     //supprime les anciennes données
     signal.map (el => 0.0)
     signal = []
-    console.log('signal vidé!')
+    consolelog('signal vidé!',10)
     sp.flush()
     if (JC != 1) {
         //par paquets de 16ksamples
         for (var i=0; i!= adcSamples; i+=16){ 
             // trigger the adc
-            console.log('datacollect l 308 a la jc trig...')
+            consolelog('datacollect l 308 a la jc trig...',10)
             setParameter('t').then( ()=>{
                 // Collect the data in chunks of 16 kbyte / 16 k * nibbles
                 setParameter('*').then( ()=>{
                     //  getData(5*samples).then( (bits)=>{
-                    //   console.log('bits',bits.length)
+                    //   consolelog(`bits ${bits.length}`,10)
                     //  })
-                    console.log('*done')
+                    consolelog('*done',10)
                 })
-                console.log('tdone')
+                consolelog('tdone',10)
             })
         }
     } else {
         setParameter('t').then( ()=>{
-            console.log('trig...')
+            consolelog('trig...',10)
             for (var i=0; i!= adcSamples; i+=16){ 
                 setParameter('*').then( ()=>{
-                    console.log('*done')                
+                    consolelog('*done',10)                
                 })
             }
-            console.log('tdone')
+            consolelog('tdone',10)
         })
     }
 } // FIN function dataCollect(adcSamples){
@@ -336,7 +333,7 @@ function dataCollect(adcSamples){
 function getCollectedData(gain) {
     var signalVolts = new Float64Array(signal.length)
     dataConvert(signalVolts, gain)
-    console.log("getCollectedData :",signalVolts.length)
+    consolelog(`getCollectedData : ${signalVolts.length}`,10)
     return signalVolts
 } // FIN function getCollectedData(
 /********************************************************************************************/
