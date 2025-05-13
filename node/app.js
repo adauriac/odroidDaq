@@ -101,7 +101,7 @@ odroidGPIOS.forEach( function( n) {
 // demarrage du serveur web 'express'
 app.listen(PORT, (error) =>{
     if(!error) 
-        consolelog(`Server ${serverVersion} is Successfully Running, and App is listening on port ${PORT}`); 
+        consolelog(`# Server ${serverVersion} is Successfully Running, and App is listening on port ${PORT}`); 
     else 
         consolelog(`Error occurred, server can't start error= ${error}`);
 });
@@ -172,7 +172,7 @@ app.get('/save/', (req, res)=>{
     }
     fs.writeFile(fname, dataStr, function (err) {
         if (err) throw err;
-        consolelog('Saved!');
+        consolelog('Saved!',10);
     })
     res.send({'fname' :fname});
 });
@@ -227,7 +227,7 @@ app.get('/time/', (req, res)=>{
     var timestamp = Date.now()
     var theTime = new Date(timestamp)
     // renvoie la date courante de l'odroid  
-    consolelog(`app.get time= ${theTime}`);
+    consolelog(`app.get time= ${theTime}`,10);
     res.send({'time' :theTime.toJSON()});
 });
 
@@ -303,7 +303,7 @@ app.get('/fft/', (req, res)=>{
 	// spawn new child process to call the python script
 	const python = spawn('python3', pythonCmd )
 	// collect data from script
-	consolelog (`app.get(/fft/) app.js (l 300) : pythonCmd=${pythonCmd}`,10)
+	consolelog (`# app.get(/fft/) app.js (l 306) : pythonCmd=${pythonCmd}`,15)
 	python.stdout.on('data', function (data) {
             // recupere 2 tableaux {f, Pxx_den}
             consolelog(`app.get(/fft/) app.js (l 267) : Pipe data from python script ... data.length= ${data.length}`,10);
@@ -337,10 +337,11 @@ app.get('/fft/', (req, res)=>{
             blinkLEDinterval = setInterval(blinkLEDstatus, 500);
 	});
 	consolelog('app.get(/fft/) app.js (l 333) write data in python script...',10)    
-	consolelog (`app.get(/fft/) app.js (l 310) JSON.stringify(data)= ${JSON.stringify(data).slice(0,200)}`,20) 
+	consolelog (`app.get(/fft/) app.js (l 310) JSON.stringify(data)= ${JSON.stringify(data).slice(0,200)}`,10) 
 	/* Stringify the array before send to py_process */
 	python.stdin.write(JSON.stringify(data) )
-	consolelog(`app.get(/fft (l 343) welch en python ${data[0]} ${data[1]} ${data[2]}`,15) 
+	consolelog(`app.get(/fft (l 343) welch en python data(0,1,2,3, ..., last)= ${data[0]},${data[1]},${data[2]},${data[3]},... ,${data[data.length-1]} len=${data.length}`,10)
+	//for (let i=0;i<data.length;i++) { consolelog(data[i],15)}
 	/* Close the stream */
 	python.stdin.end();
     } // fin else de if (JCFFT)
@@ -480,7 +481,7 @@ app.post('/', function (req, res) {
 //// reponse à la requete 'set'
 // changement de la valeur d'une variable du daq3'
 app.post('/set', function (req, res) {
-    consolelog(`set ${req.body.val}`);
+    consolelog(`set ${req.body.val}`,10);
     var value = Number( req.body.val.substring( req.body.val.indexOf('=') +1 ))
     if (req.body.val.search('highZ')!==-1){
         cmd = 'h'; acq_highZ = (value === 1)
@@ -492,7 +493,7 @@ app.post('/set', function (req, res) {
         cmd = 'f'; acq_sqWave = (value === 1)
     }   
     else if(req.body.val.search('JCBUTTON')!==-1){
-        consolelog(`app.post(/set  line 511 JCFFT=${JCFFT}`)
+        consolelog(`app.post(/set  line 511 JCFFT=${JCFFT}`,10)
 	JCFFT = !JCFFT
 	res.end()
 	return
@@ -666,9 +667,9 @@ function welchise(input,nSeg) {
     // si l'echantillon initial est de taille 2**k et qu'il y a 2 segments alors
     // segments 1 de 0 a 2**(k-1)
 
-    consolelog(`# welchise : input.length=${input.length} input=${input[0]},${input[1]},.., ${input[input.length-1]}`,15)
-    consolelog(`# welchise : nSeg=${nSeg}`,5)
-    const hannise = 0
+    consolelog(`# welchise : input.length=${input.length} input(0,1,2,3,...,last)=${input[0]},${input[1]},${input[2]},${input[3]}, ... , ${input[input.length-1]}`,15)
+    consolelog(`# welchise : nSeg=${nSeg}`,10)
+    const hannise = 1
     let verbose= 0
     // return generatedataToSend()
     let n = input.length
