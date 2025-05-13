@@ -314,10 +314,11 @@ function selectComPort(val)
 /**
  * to get the server's method for welch xform  
  */
-function whichWelch(val)
+function whichWelch()
 {
     console.log('whichWelch: entering')
-}  // FIN function whichWelch(val)
+    // getQuery("/getJCFFT")
+}  // FIN function whichWelch()
 /********************************************************************************************/
 
 /**
@@ -555,6 +556,10 @@ function getQuery( q)
                 
             }
         }
+        else if (respKeys.includes('JCFFT')) {
+	    console.log("server a repondu a getJCFFT")
+	    JCFFT=1
+	}
         else if (respKeys[0] =='data') {
             // respValues[0] = object
             //données a plotter        

@@ -134,6 +134,13 @@ app.get('/listSerial/', (req, res)=>{
         } )
 });
 
+//// reponse à la requete 'getJCFFT'
+app.get('/getJCFFT', (req, res)=>{
+    consolelog(`getJCFFT: entering`,10)
+    var x = JCFFT;
+    res.send({ 'JCFFT': x });
+});
+
 //// reponse à la requete 'aquire'
 app.get('/acquire/', (req, res)=>{   
     clearInterval(blinkLEDinterval);
