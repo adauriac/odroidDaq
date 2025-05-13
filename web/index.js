@@ -308,7 +308,16 @@ function selectComPort(val)
     postQuery('initSerial', value[0]);
 
     /// document.getElementById('acq').enable=true
-}  // FIN
+}  // FINfunction selectComPort(val)
+/********************************************************************************************/
+
+/**
+ * to get the server's method for welch xform  
+ */
+function whichWelch(val)
+{
+    console.log('whichWelch: entering')
+}  // FIN function whichWelch(val)
 /********************************************************************************************/
 
 /**
