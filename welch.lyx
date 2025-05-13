@@ -103,6 +103,7 @@ https://github.com/indutny/fft.js/
 ie 
 \emph default
 fenêtre de hann et ...
+ La référence de la fonction welch est https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.welch.html
 \end_layout
 
 \begin_layout Subsection*
