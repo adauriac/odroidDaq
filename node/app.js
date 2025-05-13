@@ -341,7 +341,7 @@ app.get('/fft/', (req, res)=>{
 	/* Stringify the array before send to py_process */
 	python.stdin.write(JSON.stringify(data) )
 	consolelog(`app.get(/fft (l 343) welch en python data(0,1,2,3, ..., last)= ${data[0]},${data[1]},${data[2]},${data[3]},... ,${data[data.length-1]} len=${data.length}`,10)
-	//for (let i=0;i<data.length;i++) { consolelog(data[i],15)}
+	// for (let i=0;i<data.length;i++) { consolelog(data[i],15)}  to log the input of the welch verbose=15 and verboseThresholdGlobal = 11
 	/* Close the stream */
 	python.stdin.end();
     } // fin else de if (JCFFT)
