@@ -25,7 +25,8 @@ f_welch, Pxx_welch = welch(
 
 # Appliquer la même fenêtre de Hann
 window = get_window('hann', N)
-signal_win = signal * window
+myWindow = np.array(list(map(lambda x:0.5-0.5*np.cos(2*np.pi*x/N),range(N))))
+signal_win = signal * myWindow
 
 # Calcul du facteur de normalisation U (moyenne de l'énergie de la fenêtre)
 U = (1 / N) * np.sum(window**2)
