@@ -5,7 +5,9 @@ On donne le signal comme une formule
 Sort sur stdout i s[i] Re(fft(i)) Im(fft(i] abs(fft[i])
 
 node -i cmpJsPy.js
+use: github.com/indutny/fft.js/blob/master/README.md.
 */
+var FFT = require('./lib/fft.js') // JC ?????????????????
 
 function f(t) {return Math.sin(2 * Math.PI * 100 * t)}
 
@@ -17,6 +19,13 @@ let N = Math.round(T * fs)          // Nombre d'échantillons
 // console.log(N)
 const Ts = Array.from({ length: N }, (_, i) => i/N);
 const signal = Ts.map(f)
+const fft = new FFT(N);
+let fftOut = fft.createComplexArray();
+fft.realTransform(fftOut, signal);
+fft.completeSpectrum(fftOut);
+
 for(let i=0;i<N;i++) {
-    console.log(`${i} ${signal[i]}`)
+    let re = fftOut[2*i]
+    let im = fftOut[2*i+1]
+    console.log(`${i} ${signal[i]} ${re} ${im}`)
 }
