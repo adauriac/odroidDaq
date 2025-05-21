@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import welch, get_window
-from scipy.fft import fft
+from scipy import fft
 
 # Paramètres du signal
 fs = 1000                # Fréquence d'échantillonnage en Hz

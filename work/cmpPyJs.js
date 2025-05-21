@@ -55,7 +55,7 @@ if (quoi=='f') {
     for(let i=0;i<N;i++) {
 	let re = fftOut[2*i]
 	let im = fftOut[2*i+1]
-	console.log(`${i} ${data[i]} ${re} ${im}`)
+	console.log(`${i} ${data[i]} ${re} ${im} ${re*re+im*im}`)
     }
 
     console.log("# welch en pythonjavascript freqSampling=${freqSampling}")
