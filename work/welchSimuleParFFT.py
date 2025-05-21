@@ -35,7 +35,15 @@ U = (1 / N) * np.sum(window**2)
 X = fft(signal_win)
 
 # Calcul de la densité spectrale de puissance (DSP)
-Pxx_fft = (1 / (fs * N * U)) * np.abs(X)**2
+Pxx_fftOrig = (1 / (fs * N * U)) * np.abs(X)**2
+Pxx_fft = []
+c = (1 / (fs * N * U))
+for i in range(len(X)):
+    z = X[i]
+    Pxx_fft.append(c*(z.real**2 + z.imag**2))
+Pxx_fft = np.array(Pxx_fft)
+diff = np.abs(Pxx_fftOrig - Pxx_fft)
+print(f"diff.max={max(diff)}")
 
 # Garder la moitié positive
 Pxx_fft = Pxx_fft[:N // 2 + 1]
