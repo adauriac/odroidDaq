@@ -29,15 +29,15 @@ myWindow = np.array(list(map(lambda x:0.5-0.5*np.cos(2*np.pi*x/N),range(N))))
 signal_win = signal * myWindow
 
 # Calcul du facteur de normalisation U (moyenne de l'énergie de la fenêtre)
-U = (1 / N) * np.sum(window**2)
+U = np.sum(window**2)
 
 # FFT du signal fenêtré
 X = fft(signal_win)
 
 # Calcul de la densité spectrale de puissance (DSP)
-Pxx_fftOrig = (1 / (fs * N * U)) * np.abs(X)**2
+Pxx_fftOrig = (1 / (fs * U)) * np.abs(X)**2
 Pxx_fft = []
-c = (1 / (fs * N * U))
+c = (1 / (fs * U))
 for i in range(len(X)):
     z = X[i]
     Pxx_fft.append(c*(z.real**2 + z.imag**2))

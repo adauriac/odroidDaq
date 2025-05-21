@@ -37,25 +37,35 @@ if (quoi=='f') {
 	console.log(`${i} ${data[i]} ${re} ${im}`)
     }
 } else {
-    console.log("in progress")
+    console.log("# in progress")
     let freqSampling = 10
     // the frequencies are i*freqSampling/len(data) 0<=i<=len(data)//2
     const f = Array.from({ length: N/2 + 1 }, (_, i) => i*freqSampling/N);
+
     // apply hann windows to the data
+    let U = 0
     for (let i=0;i<N;i++) {
-	w = 0.5 - 0.5*Math.cos(2*Math.PI*i/N)
+	let w = 0.5 - 0.5*Math.cos(2*Math.PI*i/N)
+	U += w
 	data[i] *= w
     }
+    
     const FFT = require('./lib/fft.js') // JC ?????????????????
-    const fft = new FFT(N);
+    const fft = new FFT(N)
+    const c = 1/(freqSampling*U)
     let fftOut = fft.createComplexArray();
     fft.realTransform(fftOut, data);
     fft.completeSpectrum(fftOut);
-
+    P = new Array(N)
     for(let i=0;i<N;i++) {
 	let re = fftOut[2*i]
 	let im = fftOut[2*i+1]
-	console.log(`${i} ${data[i]} ${re} ${im} ${re*re+im*im}`)
+	P[i] = re*re+im*im
+    }
+    for(let i=0;i<N;i++) {
+	let re = fftOut[2*i]
+	let im = fftOut[2*i+1]
+	console.log(`${i} ${data[i]} ${re} ${im} ${P[i]}`)
     }
 
     console.log("# welch en pythonjavascript freqSampling=${freqSampling}")
