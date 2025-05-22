@@ -2,5 +2,6 @@
 2. cmpPyJs sert à comparer une implémentation javascript et python.
    cmpPyJS.js et cmpPyJs.py calculent la fft ou Welch du fichier exampleSignal, un flag f/w sur la ligne de cmd choisi quelle tranformation
    cmpPyJs.sh lance les deux et affiche un résumé
-   Fft est OK Welch NON !
+   Fft est mais pour Welch les deux premières valeurs (0, plus petite frequence) sont DIFFERENTES (?)
    
+cmpPyJS.js contient la fonction javascript welchise
