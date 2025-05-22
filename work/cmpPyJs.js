@@ -1,7 +1,7 @@
 /* 
 pour comparer python et js : cmpPyJs.js
 On calcule la fft simple de python, et on fera de meme dans cmpPyJs.js
-On donne le signal dans le fichier nommé tmp
+On donne le signal dans le fichier nommé exampleSignal
 Sort sur stdout i s[i] Re(fft(i)) Im(fft(i] abs(fft[i])
 
 appel: node cmpJsPy.js
@@ -19,12 +19,13 @@ if (quoi!='f' && quoi!='w'){
     console.log("syntax: node cmpPyJs.js f/w     (pour welch ou fft)")
     process.exit(0)
 }
-const contenu = fs.readFileSync("./tmp",'utf8')
+const contenu = fs.readFileSync("./exampleSignal",'utf8')
 const lines = contenu.split(/\r?\n/)
 lines.pop()
 const data = lines.map(ligne=>parseFloat(ligne,10))
 let N = data.length
 if (quoi=='f') {
+    console.log(`# fft en javascript `)
     const FFT = require('./lib/fft.js') // JC ?????????????????
     const fft = new FFT(N);
     let fftOut = fft.createComplexArray();
@@ -37,8 +38,7 @@ if (quoi=='f') {
 	console.log(`${i} ${data[i]} ${re} ${im}`)
     }
 } else {
-    console.log("# in progress")
-    let freqSampling = 10
+    let freqSampling = parseFloat(process.argv[3])
     // the frequencies are i*freqSampling/len(data) 0<=i<=len(data)//2
     const f = Array.from({ length: N/2 + 1 }, (_, i) => i*freqSampling/N);
 
@@ -60,16 +60,18 @@ if (quoi=='f') {
     for(let i=0;i<N;i++) {
 	let re = fftOut[2*i]
 	let im = fftOut[2*i+1]
-	P[i] = re*re+im*im
+	P[i] = c*(re*re+im*im)
     }
-    for(let i=0;i<N;i++) {
-	let re = fftOut[2*i]
-	let im = fftOut[2*i+1]
-	console.log(`${i} ${data[i]} ${re} ${im} ${P[i]}`)
+    if (false) {
+	for(let i=0;i<N;i++) {
+	    let re = fftOut[2*i]
+	    let im = fftOut[2*i+1]
+	    console.log(`${i} ${data[i]} ${re} ${im} ${P[i]}`)
+	}
     }
 
-    console.log("# welch en pythonjavascript freqSampling=${freqSampling}")
+    console.log(`# welch en javascript freqSampling=${freqSampling}`)
     for (let i=0;i<=N/2;i++) {
-	console.log(i,f[i])
+	console.log(i,f[i],P[i])
     }
 }
