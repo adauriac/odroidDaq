@@ -1,6 +1,10 @@
 #!/bin/bash
 
-# node cmpPyJs.js 
+# node cmpPyJs.js
+echo "genrating signal in the fileexampleSignal"
+python3 makeSignal.py 9
+
+echo "performing transformation"
 cmdj="node cmpPyJs.js $1 $2"
 cmdp="python3 cmpPyJs.py $1 $2"
 $cmdj | tee tmpjs
@@ -8,7 +12,7 @@ $cmdp | tee tmppy
 echo ""
 echo ""
 echo "# Resume"
-echo "# frequence javascript python (les freq sont bien les memes"
+echo "# frequence javascript python (les freq sont bien les memes)"
 if [ "$1" = "w" ]; then
     paste tmpjs tmppy | grep -v \# | gawk '{if (($1!=$4) || ($2!=$5)) print("MERDE"); else printf("%lf %lf %lf\n",$2,$3,$6)}'
 else

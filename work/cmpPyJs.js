@@ -46,7 +46,7 @@ if (quoi=='f') {
     let U = 0
     for (let i=0;i<N;i++) {
 	let w = 0.5 - 0.5*Math.cos(2*Math.PI*i/N)
-	U += w
+	U += w*w
 	data[i] *= w
     }
     
@@ -56,11 +56,13 @@ if (quoi=='f') {
     let fftOut = fft.createComplexArray();
     fft.realTransform(fftOut, data);
     fft.completeSpectrum(fftOut);
-    P = new Array(N)
-    for(let i=0;i<N;i++) {
+    P = new Array(N/2+1)
+    for(let i=0;i<=N/2;i++) {
 	let re = fftOut[2*i]
 	let im = fftOut[2*i+1]
 	P[i] = c*(re*re+im*im)
+	if (i!=N/2)
+	    P[i] *= 2
     }
     if (false) {
 	for(let i=0;i<N;i++) {

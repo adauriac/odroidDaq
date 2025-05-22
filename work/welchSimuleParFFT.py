@@ -2,9 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import welch, get_window
 from scipy import fft
+import sys
 
 # Paramètres du signal
 fs = 1000                # Fréquence d'échantillonnage en Hz
+fs=32 #bidon
 T = 1.0                  # Durée en secondes
 N = int(T * fs)          # Nombre d'échantillons
 t = np.linspace(0, T, N, endpoint=False)
@@ -12,6 +14,23 @@ t = np.linspace(0, T, N, endpoint=False)
 # Signal : sinus de 100 Hz + un peu de bruit
 signal = np.sin(2 * np.pi * 100 * t) + 0.1 * np.random.randn(N)
 
+if len(sys.argv)==3:
+    lines = open(sys.argv[1]).readlines()
+    fs = float(sys.argv[2])
+    signal = np.array(list(map(float,lines)))
+    N = len(signal)
+    print("# data from "+sys.argv[1]+ " with fs=%lf"%fs)
+else:
+    print("# data generated (NOT from a file)")
+
+
+if False:
+    ff=open("signaltmp","w")
+    for x in signal:
+        ff.writelines("%15.13lf\n"%x)
+    ff.close()
+    print(ff.name+ " closed")
+    sys.exit(0)
 # ================================
 # 1. Méthode Welch (référence)
 # ================================
