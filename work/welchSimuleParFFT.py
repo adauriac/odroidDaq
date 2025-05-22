@@ -35,23 +35,23 @@ U = np.sum(window**2)
 X = fft(signal_win)
 
 # Calcul de la densité spectrale de puissance (DSP)
-Pxx_fftOrig = (1 / (fs * U)) * np.abs(X)**2
+# Pxx_fft = (1 / (fs * U)) * np.abs(X)**2
 Pxx_fft = []
 c = (1 / (fs * U))
 for i in range(len(X)):
     z = X[i]
     Pxx_fft.append(c*(z.real**2 + z.imag**2))
 Pxx_fft = np.array(Pxx_fft)
-diff = np.abs(Pxx_fftOrig - Pxx_fft)
-print(f"diff.max={max(diff)}")
 
 # Garder la moitié positive
 Pxx_fft = Pxx_fft[:N // 2 + 1]
 Pxx_fft[1:-1] *= 2  # Corriger pour la symétrie (hors DC et Nyquist)
+# [a(0),a(1),...,a(2*n-1)] -> [2*a(0),2*a(1),...,2*a(n-1),a(n) ]
 
 # Fréquences associées
 # f_fft = np.fft.fftfreq(N, 1 / fs)[:N // 2 + 1]
-f_fft = np.fft.rfftfreq(N, 1 / fs)
+f_fft = np.array(list(map(lambda x:x*(fs/N),range(N//2+1))))
+
 # ================================
 # 3. Affichage
 # ================================
