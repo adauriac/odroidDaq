@@ -170,6 +170,7 @@ app.get('/save/', (req, res)=>{
         x = (i++)*periode
         dataStr += x.toString() + ' ' + data[i].toString() + '\n'
     }
+    consolelog(`app.get(/save app.js (l 173) dataStr= ${dataStr}`,10)
     fs.writeFile(fname, dataStr, function (err) {
         if (err) throw err;
         consolelog('Saved!',10);
@@ -341,7 +342,10 @@ app.get('/fft/', (req, res)=>{
 	/* Stringify the array before send to py_process */
 	python.stdin.write(JSON.stringify(data) )
 	consolelog(`app.get(/fft (l 343) welch en python data(0,1,2,3, ..., last)= ${data[0]},${data[1]},${data[2]},${data[3]},... ,${data[data.length-1]} len=${data.length}`,10)
-	// for (let i=0;i<data.length;i++) { consolelog(data[i],15)}  to log the input of the welch verbose=15 and verboseThresholdGlobal = 11
+	if (false) 
+	    for (let i=0;i<data.length;i++) {
+		consolelog(data[i],10)
+	    } // to log the input of the welch verbose=15 and verboseThresholdGlobal = 11
 	/* Close the stream */
 	python.stdin.end();
     } // fin else de if (JCFFT)
@@ -658,44 +662,36 @@ function quit() {
 } // FIN function quit() { 
 /* *********************************************************************************** */
 
-function welchise(input,nSeg) {
-    // calcul TOUJOURS la transformee de welch avec un seul segment
-    // puis si nSeg>1 calcul EN PLUS la transformee abev nSeg segments
-    // utilise la fenetre de Hann definie par w(k) = 1/2 - 1/2 *cos(2*Pi*k/(n-1)) 0<=k<n
-    // ces valeurs viennent de la transformee de Welch de scipy
-    // l'overlap entre deux segments est de la moitie donc
-    // si l'echantillon initial est de taille 2**k et qu'il y a 2 segments alors
-    // segments 1 de 0 a 2**(k-1)
-
-    consolelog(`# welchise : input.length=${input.length} input(0,1,2,3,...,last)=${input[0]},${input[1]},${input[2]},${input[3]}, ... , ${input[input.length-1]}`,15)
-    consolelog(`# welchise : nSeg=${nSeg}`,10)
-    const hannise = 1
-    let verbose= 0
-    // return generatedataToSend()
-    let n = input.length
-    let m = Math.trunc(n/2)+1
-    const hann = [...input]; // the values will be modified by x->x * (0.5 - 0.5*cos(2*pi*k/(n-1)))
-    for(let i=0;i<n;i++) {
-	let w = 0.5 - 0.5*Math.cos(2*Math.PI*i/(n-1.))
-	if (hannise) {
-	    hann[i] *= w
-	}
+function welchise(data,freqSampling,n) {
+    let N = data.length
+    //const f = Array.from({ length: N/2 + 1 }, (_, i) => i*freqSampling/N);
+    let U = 0
+    for (let i=0;i<N;i++) {
+	let w = 0.5 - 0.5*Math.cos(2*Math.PI*i/N)
+	U += w*w
+	data[i] *= w
     }
-    const f = new FFT(n);
-    let output = f.createComplexArray();
-    f.realTransform(output, input);
-    if (verbose)
-	for(let i=0;i<n;i+=2) 
-	    consolelog(`fft ${i/2} ${output[i]} ${output[i+1]}`,10)
-    const result = new Array(m)
-    for(let i=0;i<m;i++) 
-	result[i] = output[2*i]*output[2*i]  + output[2*i+1]*output[2*i+1] 
-    if (verbose)
-	for(let i=0;i<m;i++) 
-	    consolelog(`result[${i}]= ${result[i]}`,10)
-    return result
-}  // FIN function welchise(input,nSeg) {
-/* *********************************************************************************** */
+    const FFT = require('./lib/fft.js') 
+    const fft = new FFT(N)
+    const c = 1/(freqSampling*U)
+    let fftOut = fft.createComplexArray();
+    fft.realTransform(fftOut, data);
+    fft.completeSpectrum(fftOut);
+    P = new Array(N/2+1)
+    for(let i=0;i<=N/2;i++) {
+	let re = fftOut[2*i]
+	let im = fftOut[2*i+1]
+	P[i] = c*(re*re+im*im)
+	if (i!=N/2)
+	    P[i] *= 2
+    }
+    // console.log(`# welch en javascript freqSampling=${freqSampling} ${N}`)
+    // for (let i=0;i<=N/2;i++) 
+    // 	console.log(i,f[i],P[i])
+    // return [f,P]
+    return P;
+} // function welchise(data,freqSampling,n) {
+// ***************************************************************************************
 
 function generatedataToSend(N=8192) {
     function generateRepeatedNumberString() {

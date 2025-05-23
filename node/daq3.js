@@ -123,7 +123,7 @@ function getSerialPortList(){
  */
 function dataConvert(s, gain){
     //convertit les données temporelles reçues en Volts selon le type de carte (moduleID)
-    consolelog(`moduleID= ${moduleID}' dataConvert gain: ${gain} {s.length}`,10)
+    consolelog(`dataConvert daq3.js (l 126): moduleID= ${moduleID} dataConvert gain: ${gain} ${s.length}$`,10)
 
     var maxInt = TEIs.getModule(moduleID).AdcTreshold *2
     
@@ -288,7 +288,7 @@ function dataCollect(adcSamples){
     //lance l'acqisition du signal temporel
     // nombre de données souhaitées
     signalLength = adcSamples * 1024
-    consolelog(`dataCollect entering (daq3.js l 297) adcSamples= ${adcSamples} signal.length=${signalLength} acqiDone=${acqiDone}`,10)
+    consolelog(`dataCollect: entering (daq3.js l 297) adcSamples= ${adcSamples} signal.length=${signalLength} acqiDone=${acqiDone}`,10)
     acqiDone = false
     //supprime les anciennes données
     signal.map (el => 0.0)
@@ -331,6 +331,7 @@ function dataCollect(adcSamples){
  * @returns : données converties (Float64Array)
  */
 function getCollectedData(gain) {
+    consolelog(`getCollectedData daq3.js (l334) : entering gain=${gain}`,10)
     var signalVolts = new Float64Array(signal.length)
     dataConvert(signalVolts, gain)
     consolelog(`getCollectedData : ${signalVolts.length}`,10)
