@@ -274,9 +274,10 @@ app.get('/fft/', (req, res)=>{
 	consolelog("app.get(/fft/) (l 267) javascript welch in progress",10); 
 	let result = welchise1(data,seg) // result is an array
 	let dataToSend = '{"fft_x1":['
-	for(let i=0;i<data.length/2;i++)
+	for(let i=0;i<=data.length/2;i++)
 	    dataToSend += 0.5*i*freq+',';
-	dataToSend += 0.5*data.length/2*freq+'],'
+	dataToSend = dataToSend.slice(0, -1) + "]"; // last "," becomes "]"
+	dataToSend += ','
 	dataToSend+='"fft_y1":' + jsonize(result)+',\n'
 	dataToSend+='"f0": 0,\n"fft_x2": 0,\n"fft_y2": 0.0}'
 	// writeAndExit(`dataToSend=${dataToSend}`)
