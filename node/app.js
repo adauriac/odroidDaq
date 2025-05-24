@@ -272,7 +272,7 @@ app.get('/fft/', (req, res)=>{
     if (JCFFT) {
 	let freq = TEIs.getModule(TEImodule).AdcSamplingRate*1.0/(data.length/2)
 	consolelog("app.get(/fft/) (l 267) javascript welch in progress",10); 
-	let result = welchise(data,seg) // result is an array
+	let result = welchise1(data,seg) // result is an array
 	let dataToSend = '{"fft_x1":['
 	for(let i=0;i<data.length/2;i++)
 	    dataToSend += 0.5*i*freq+',';
@@ -662,7 +662,8 @@ function quit() {
 } // FIN function quit() { 
 /* *********************************************************************************** */
 
-function welchise(data,freqSampling,n) {
+function welchise1(data,freqSampling) {
+    // a single segment [0,n[
     let N = data.length
     //const f = Array.from({ length: N/2 + 1 }, (_, i) => i*freqSampling/N);
     let U = 0
@@ -690,7 +691,20 @@ function welchise(data,freqSampling,n) {
     // 	console.log(i,f[i],P[i])
     // return [f,P]
     return P;
-} // function welchise(data,freqSampling,n) {
+} // function welchise1(data,freqSampling) {
+// ***************************************************************************************
+
+function welchise2(data,freqSampling) {
+    // 3 segments of size N/2 :[0,N/2[,[N/4,3N/4[,[N/2,N[
+    let N = data.length
+} // FIN function welchise2(data,freqSampling) {
+// ***************************************************************************************
+
+function welchise3(data,freqSampling) {
+    // 7 segments of size N/4 :[0,N/4[,[N/8,3N/8[,[N/4,N/2[,[3N/8,5N/8[,
+    // [N/2,3N/4[,[5N/8,7N/8[,[3N/4,N[    
+    let N = data.length
+} // FIN function welchise3(data,freqSampling) {
 // ***************************************************************************************
 
 function generatedataToSend(N=8192) {
