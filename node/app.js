@@ -698,6 +698,11 @@ function welchise1(data,freqSampling) {
 function welchise2(data,freqSampling) {
     // 3 segments of size N/2 :[0,N/2[,[N/4,3N/4[,[N/2,N[
     let N = data.length
+    let T1 = welchise1(data.slice(0,N/2),freqSampling) //  slice(d,f)->[d,f[
+    let T2 = welchise1(data.slice(N/4,3*N/4),freqSampling)
+    let T3 = welchise1(data.slice(N/2,N),freqSampling)
+    let P = T1.map((val, i) => (val + T2[i] + T3[i]) / 3);
+    return P;
 } // FIN function welchise2(data,freqSampling) {
 // ***************************************************************************************
 
@@ -705,6 +710,15 @@ function welchise3(data,freqSampling) {
     // 7 segments of size N/4 :[0,N/4[,[N/8,3N/8[,[N/4,N/2[,[3N/8,5N/8[,
     // [N/2,3N/4[,[5N/8,7N/8[,[3N/4,N[    
     let N = data.length
+    let T1 = welchise1(data.slice(0,N/4),freqSampling) //  slice(d,f)->[d,f[
+    let T2 = welchise1(data.slice(N/8,3*N/8),freqSampling)
+    let T3 = welchise1(data.slice(N/4,N/2),freqSampling)
+    let T4 = welchise1(data.slice(3*N/8,5*N/8),freqSampling)
+    let T5 = welchise1(data.slice(N/2,3*N/4),freqSampling)
+    let T6 = welchise1(data.slice(5*N/8,7*N/8),freqSampling)
+    let T7 = welchise1(data.slice(3*N/4,N),freqSampling)
+    let P = T1.map((val, i) => (val+ T2[i]+T3[i]+T4[i]+T5[i]+T6[i]+T7[i])/7);
+    return P;
 } // FIN function welchise3(data,freqSampling) {
 // ***************************************************************************************
 
