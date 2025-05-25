@@ -270,16 +270,29 @@ app.get('/fft/', (req, res)=>{
     var seg = Number(req.query['seg'])
     setLEDstatus(1)
     if (JCFFT) {
-	let freq = TEIs.getModule(TEImodule).AdcSamplingRate*1.0/(data.length/2)
-	consolelog("app.get(/fft/) (l 267) javascript welch in progress",10); 
+	// seg is NOT the number of segments but a parameter the actual number of seg is 2**(seg)-1
+	if (seg>3)        // we treat only the case seg=1,2,3.  todo: warn the user on the client side 
+	    seg = 1 
+	let freqMin = TEIs.getModule(TEImodule).AdcSamplingRate*1.0/(data.length)
+	consolelog(`app.get(/fft/) (l 267) javascript welch in progress seg=${seg}`,10); 
 	let result = welchise1(data,seg) // result is an array
 	let dataToSend = '{"fft_x1":['
 	for(let i=0;i<=data.length/2;i++)
-	    dataToSend += 0.5*i*freq+',';
+	    dataToSend += i*freqMin+',';
 	dataToSend = dataToSend.slice(0, -1) + "]"; // last "," becomes "]"
 	dataToSend += ','
-	dataToSend+='"fft_y1":' + jsonize(result)+',\n'
-	dataToSend+='"f0": 0,\n"fft_x2": 0,\n"fft_y2": 0.0}'
+	dataToSend += '"fft_y1":' + jsonize(result)+',\n'
+	if (seg==1) {
+	    dataToSend += '"f0": 0,\n'
+	    dataToSend += '"fft_x2": 0,\n'
+	    dataToSend += '"fft_y2": 0.0}'
+	} else {
+	    freqMin *=  (seg==2) ? 3 : 7;
+	    consolelog(`app.get(/fft/) (l 287) f0=${freqMin} seg=${seg}`,10) 
+	    dataToSend += `"f0": ${freqMin},\n` 
+	    dataToSend += '"fft_x2": 0,\n'
+	    dataToSend += '"fft_y2": 0.0}'
+	}	    
 	// writeAndExit(`dataToSend=${dataToSend}`)
 	const ndts=dataToSend.length
         var mydata = JSON.parse(dataToSend)
@@ -312,12 +325,13 @@ app.get('/fft/', (req, res)=>{
             dataToSend += data.toString();
 	});
 	python.stderr.on('data', function (data) {
-            consolelog(`app.get(/fft/ app.js (l 307) stderr data.toString()= ${data.toString()}`,10);
+            consolelog(`app.get(/fft/ app.js (l 307) stderr data.toString()= ${data.toString()}`,18);
 	});
 	// in close event we are sure that stream from child process is closed
 	python.on('close', (code) => {
             consolelog(`child process close all stdio with code ${code}`,10);
             // dataTosend -> fft_X et fft_Y pour eventuelle sauvegardesupprime les fichiers
+	    consolelog(`app.get(/fft/) app.js (l 321) dataToSend=${dataToSend} `,10)
             var data = JSON.parse(dataToSend)
             var dataKeys = [] 
             for (const key in data) {
@@ -328,9 +342,9 @@ app.get('/fft/', (req, res)=>{
             if (data[dataKeys[3]].length != undefined){
 		fft_X_N=data[dataKeys[3]]
 		fft_Y_N=data[dataKeys[4]]     
-            }
-            else{
-		fft_X_N.length=0; fft_Y_N.length=0
+            } else {
+		fft_X_N.length=0;
+		fft_Y_N.length=0
             }
             // send data to browser
             // consolelog("app.get(/fft/ app.js (l 346) dataToSend:" )
@@ -338,8 +352,8 @@ app.get('/fft/', (req, res)=>{
             res.send(dataToSend)
             blinkLEDinterval = setInterval(blinkLEDstatus, 500);
 	});
-	consolelog('app.get(/fft/) app.js (l 333) write data in python script...',10)    
-	consolelog (`app.get(/fft/) app.js (l 310) JSON.stringify(data)= ${JSON.stringify(data).slice(0,200)}`,10) 
+	consolelog('app.get(/fft/) app.js (l 341) write data in python script...',10)    
+	consolelog (`app.get(/fft/) app.js (l 342) JSON.stringify(data)= ${JSON.stringify(data)}`,10) 
 	/* Stringify the array before send to py_process */
 	python.stdin.write(JSON.stringify(data) )
 	consolelog(`app.get(/fft (l 343) welch en python data(0,1,2,3, ..., last)= ${data[0]},${data[1]},${data[2]},${data[3]},... ,${data[data.length-1]} len=${data.length}`,10)
