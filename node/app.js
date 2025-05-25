@@ -271,15 +271,13 @@ app.get('/fft/', (req, res)=>{
     setLEDstatus(1)
     if (JCFFT) {
 	// seg is NOT the number of segments but a parameter the actual number of seg is 2**(seg)-1
-	if (seg>3)        // we treat only the case seg=1,2,3.  todo: warn the user on the client side 
-	    seg = 1 
+	if ((seg>3) || (seg<=0))       // we treat only the case seg=1,2,3.  todo: warn the user on the client side 
+	    seg = 1
+	// here seg = 1 or 2 or 3
 	let freqMin = TEIs.getModule(TEImodule).AdcSamplingRate*1.0/(data.length)
 	consolelog(`app.get(/fft/) (l 267) javascript welch in progress seg=${seg}`,10); 
 	let result = welchise1(data,seg) // result is an array
-	let dataToSend = '{"fft_x1":['
-	for(let i=0;i<=data.length/2;i++)
-	    dataToSend += i*freqMin+',';
-	dataToSend = dataToSend.slice(0, -1) + "]"; // last "," becomes "]"
+	let dataToSend = '{"fft_x1":' + generateFft_x(data.length,freqMin)
 	dataToSend += ','
 	dataToSend += '"fft_y1":' + jsonize(result)+',\n'
 	if (seg==1) {
@@ -287,11 +285,14 @@ app.get('/fft/', (req, res)=>{
 	    dataToSend += '"fft_x2": 0,\n'
 	    dataToSend += '"fft_y2": 0.0}'
 	} else {
-	    freqMin *=  (seg==2) ? 3 : 7;
+	    freqMin *=  (seg==2) ? 2 : 4;
 	    consolelog(`app.get(/fft/) (l 287) f0=${freqMin} seg=${seg}`,10) 
 	    dataToSend += `"f0": ${freqMin},\n` 
-	    dataToSend += '"fft_x2": 0,\n'
-	    dataToSend += '"fft_y2": 0.0}'
+	    dataToSend += '"fft_x2": '+generateFft_x(data.length,freqMin)
+	    dataToSend += ','
+	    result = (seg==2) ? welchise2(data,seg) : welchise3(data,seg)
+	    consolelog(`app.get(/fft/) (l 293) result.length=${result.length}`,10) 
+	    dataToSend += '"fft_y2":' + jsonize(result) + '}'
 	}	    
 	// writeAndExit(`dataToSend=${dataToSend}`)
 	const ndts=dataToSend.length
@@ -325,7 +326,7 @@ app.get('/fft/', (req, res)=>{
             dataToSend += data.toString();
 	});
 	python.stderr.on('data', function (data) {
-            consolelog(`app.get(/fft/ app.js (l 307) stderr data.toString()= ${data.toString()}`,18);
+            consolelog(`app.get(/fft/ app.js (l 307) stderr data.toString()= ${data.toString()}`,10);
 	});
 	// in close event we are sure that stream from child process is closed
 	python.on('close', (code) => {
@@ -816,4 +817,17 @@ function consolelog(message,verbose=Number.MAX_SAFE_INTEGER-1) {
     if (verbose >= verboseThresholdGlobal)
 	console.log(message)
 }  // FIN function consolelog(message,verbose=0) {
+// *************************************************************************
+
+function generateFft_x(dataLength,freqMin) {
+    // generate a json string representing the array of frequencies
+    // key is the name (usually fft_x1 or fft_x2)
+    // dataLength is the length of the data and
+    // freqMin is the minimal non zero frequency
+    let dataToSend = "["
+    for(let i=0;i<=dataLength/2;i++)
+	dataToSend += i*freqMin+',';
+    dataToSend = dataToSend.slice(0, -1) + "]"; // last "," becomes "]"
+    return dataToSend
+}  // FIN function generateFft_x(key,dataLength,freqMin) {
 // *************************************************************************
