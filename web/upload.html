@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>FFTs Upload</title>
+    <link rel="stylesheet" href="css/pure-min.css">
+    <link rel="stylesheet" href="css/index.css">
+    <link rel="icon" href="medias/data.ico">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  </head>
+
+  <body onload="setupPage()" >
+    <div id="head" class="pure-g" data-theme="1">
+      <div  class="pure-u-1-6">   <img  height="60" src="medias/data.png">  </div>
+      <div  class="pure-u-5-6">   
+         <h1 >nodeFFTs on <span id="titre">TE0023 DAQ3</span></h1> 
+      </div>
+       
+ </div>
+ <div id="main" class="pure-g" data-theme="1">
+  <div  class="pure-u-1">
+            <h1>List of data files</h1>
+              <table class="pure-table pure-table-striped">   
+            <thead>
+              <tr><th></th><th>name</th><th>get</th><th>del</th></tr>
+          </thead><tbody id="files">  
+                <tr  id="f_0">
+                  <td>_0</td>
+                  <td id="fname_0">filename</td>
+                  <td ><input type="checkbox" class="checkGet" id="getfile_0" value="_0" onclick="getFiles(this)"></td>
+                  <td><input type="checkbox" class="checkDel" id="delfile_0" value="_0" onclick="delFiles(this)"></td>
+                </tr>
+              </tbody>
+              </table>
+               <br>  
+          </div>
+          <div  class="pure-u-1">
+            <button id="getButton" class="pure-button pure-button-primary" disabled onclick="getFileClicked()">get selected files</button>
+            <button id="zipButton" class="pure-button pure-button-primary" disabled  onclick="zipFileClicked()">get zip</button>
+            <button id="delButton" class="pure-button pure-button-primary" disabled onclick="delFileClicked()">delete selected files</button>
+            <br>
+        </div>
+        <br>
+    </div>
+<br>
+   <!-- -->
+   <div id="foot" class="pure-u-1" data-theme="1">
+      <div  class="pure-u-1-6">    <img  height="60" src="medias/logoCNRS.png">  </div>
+      <div  class="pure-u-15-24">  <br>&copy; Pole Elec-2023 </div>
+     <div  class="pure-u-1-6">  <img height="60" src="medias/logoNEELQ.png">   </div>
+    </div>
+  </body>
+</html>
+<!--<script src = "https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js" integrity="sha512-csNcFYJniKjJxRWRV1R7fvnXrycHP6qDR21mgz1ZP55xY5d+aHLfo9/FcGDQLfn2IfngbAHd8LdfsagcCqgTcQ==" crossorigin = "anonymous" referrerpolicy = "no-referrer"> </script>
+-->
+<script type="application/javascript" src="upload.js"></script>
