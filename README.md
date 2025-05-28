@@ -18,4 +18,5 @@ Réunion avec Julien le mer. 28 mai 2025 17:53:12 CEST:
 1. ordonnée de fft incorrect, erreur liée à "external gain"
 2. le signal brut présente un "saut" bizarre. Dans la version initiale ce saut n'est présent que si le nombre de points est 16K.  
 3. upload.html ne fonctionne pas : probablement du à la localisation des fichiers
-4. penser au déploiement.
+4. pourquoi segment l=2 ou 3 ralentis tant le calcul
+5. penser au déploiement.
