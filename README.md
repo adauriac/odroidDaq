@@ -13,3 +13,10 @@ In python one use scipy, and in js github.com/indutny/fft.js/blob/master/README.
 Note that this fft in js NEEDS a signal of size power of two.
 See welch.lyx to understand how it works.
 For some reason scipy.fft is not properly install on odroid, so I perform the check in the odroid directory mounted on a ubuntu machine
+
+Réunion avec Julien le mer. 28 mai 2025 17:53:12 CEST:
+1. ordonnée de fft incorrect, erreur liée à "external gain"
+2. le signal brut présente un "saut" bizarre. Dans la version initiale ce saut n'est présent que si le nombre de points est 16K.  
+3. upload.html ne fonctionne pas : probablement du à la localisation des fichiers
+4. pourquoi segment l=2 ou 3 ralentis tant le calcul
+5. penser au déploiement.
