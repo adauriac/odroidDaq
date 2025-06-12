@@ -8,6 +8,12 @@ let JC = 1
 // const verboseThresholdGlobal = Number.MAX_SAFE_INTEGER // never printed 
 const verboseThresholdGlobal = 11 // 0->always printed, Number.MAX_SAFE_INTEGER->never printed  printed if verbose>=verboseThresholdGlobal
 // plus verboseThresholdGlobal est BAS plus on affiche
+let args = process.argv
+if (args.indexOf('NOJC')!=-1)
+    JC = 0
+if (args.indexOf("NOJCFFT")!=-1)
+    JCFFT = 0
+
 module.exports = { verboseThresholdGlobal,consolelog,JC }
 
 // pour la comm avec daq3
