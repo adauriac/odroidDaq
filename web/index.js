@@ -311,13 +311,37 @@ function selectComPort(val)
 }  // FINfunction selectComPort(val)
 /********************************************************************************************/
 
+
+function MakeGetRequest(url, callback) {
+    var xmlhttp = new XMLHttpRequest();
+    xmlhttp.onreadystatechange = function() {
+        if (xmlhttp.readyState == XMLHttpRequest.DONE) { // XMLHttpRequest.DONE == 4
+            if (xmlhttp.status == 200) {
+		if (callback)
+		    callback(JSON.parse(xmlhttp.responseText));
+           }
+           else if (xmlhttp.status == 400) {
+              alert('There was an error 400');
+           }
+           else {
+               console.log('something else other than 200 was returned', xmlhttp.status);
+           }
+        }
+    };
+    xmlhttp.open("GET", url, true);
+    xmlhttp.send();
+}  // FIN function MakeGetRequest(url, callback) {
+/********************************************************************************************/
+
 /**
  * to get the server's method for welch xform  
  */
 function whichWelch()
 {
-    console.log('whichWelch: entering')
-    // getQuery("/getJCFFT")
+    console.log('whichWelch: entering');
+    let checkButton = document.getElementById("JCBUTTON")
+    MakeGetRequest("/getJCFFT", (resp) => {checkButton.checked=resp.JCFFT ? true :false});
+    //replace getQuery("/getJCFFT")
 }  // FIN function whichWelch()
 /********************************************************************************************/
 
@@ -369,7 +393,7 @@ function acquire()
             getQuery('done?');
         }, 1000);
     console.log("JC fin getQuery") // JC
-}  // FIN
+}  // FIN function acquire()
 /********************************************************************************************/
 /**
  * envoie une requete au daq3 pour sauvegarder les données acquises
@@ -750,6 +774,13 @@ async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2)
     //fft_change : changement de couleur du tracé si !=0 (resultat de 2ffts)
     var trace1 , trace2
     if (fft_change===0) {
+	// BIDON BIDON BIDON POUR NE PAS TRACER LES PTS 1 ET 2 ETC
+	alert("ATTENTION 4 1er pts removed A ENLEVER index.js l778")// BIDON
+	fft_x1[1]=0 // BIDON
+	fft_x1[2]=0 // BIDON
+	fft_x1[3]=0 // BIDON
+	fft_x1[4]=0 // BIDON
+	// FIN BIDON  FIN BIDON  FIN BIDON 
         //segmentation =1 : 1seule fft
         trace1 = {
             x: fft_x1,
