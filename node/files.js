@@ -1,9 +1,10 @@
 var path = require('path');
 var fs = require('fs');
+const { consolelog,verboseThresholdGlobal,JC } = require('./app.js');
 
 var dataFiles= new Array()
 var directoryPath = path.join(__dirname, '..', 'data');
-
+consolelog(`file.js said : directoryPath= ${directoryPath}`,18)
 /********************************************************************************************/
 
 /**
@@ -12,7 +13,8 @@ var directoryPath = path.join(__dirname, '..', 'data');
  */
 function listDataFiles()
 {
-//rempli dataFiles avec les noms de fichiers de data
+    //rempli dataFiles avec les noms de fichiers de data
+    consolelog("entering listDataFiles files.js l 17",18)
   return new Promise( function(resolve, reject){
     try {
         //joining path of directory 
@@ -37,8 +39,7 @@ function listDataFiles()
         reject(error)
     }
   });
-}
-
+}  // FIN function listDataFiles()
 /********************************************************************************************/
 
 
@@ -60,7 +61,7 @@ function deleteFileList(files){
          });  
      });
    return deleted
-}
+} // FIN function deleteFileList(files){
 /********************************************************************************************/
 
 /**

@@ -376,8 +376,10 @@ app.get('/fft/', (req, res)=>{
 //// reponse à la requete 'listdir?'
 app.get("/listDir/", (req, res)=> {
     // renvoie la liste des fichiersdu dossier 'data
+    consolelog("entering app.get(/listDir/ app.js l 379")
     dataFiles.list() .then(
         (files) => {
+	    consolelog(`app.get(/listDir app.js l 382 files=${files}`,18)
             res.send({'files': JSON.stringify(files) } )
         });
 });
