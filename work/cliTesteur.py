@@ -20,6 +20,7 @@ import serial  # Serial/Comport connection
 from scipy.fftpack import fft # FFT 
 import numpy as np # FFT window function generating data
 from matplotlib import pyplot as plt  # Plotting of Graphs
+import serial.tools.list_ports
 
 
 def getModuleId(comport):
@@ -123,8 +124,9 @@ def dataConvertTEI0023(adcByteList, adcSamples, adcSignalVolt, adcSignalFloatNor
         # ADC resolution is 18bit, positive values reach from 0 to 131071, 
         # negatives values from 131072 to 262142        
         adcIntRaw = int(adcByteList[adcSingleValue:adcSingleValue+5], 16)
-        if adcIntRaw > 131071:
-            adcIntRaw = int(adcIntRaw - 262142)
+        if False: # NOT SIGNED, for SIGNED use True
+            if adcIntRaw > 131071:
+                adcIntRaw = int(adcIntRaw - 262142)
         adcSignalVolt.append(float(adcIntRaw)*(2*5.0*1/0.45)/262142) # (2*Vref*ADCgain) / 2*maxInt 149
         adcSignalFloatNormalized.append(adcIntRaw/131071)
         adcSignedInteger.append(adcIntRaw)
@@ -196,21 +198,17 @@ def mySendCommand(cmd):
         exit(1)
 # FIN def mySendCommand(cmd):
 
-if __name__ == "__main__":
-    import serial.tools.list_ports
-    def nieme(n):
-        global adcByteListAll
-        return int(adcByteList[5*n:5*n+5],16)
-   
-    # ports = serial.tools.list_ports.comports()
-    # for port in ports:
-    #     print(f"Port: {port.device}, Description: {port.description}, Hardware ID: {port.hwid}")
-    # id = getModuleId(comport)
-    # print(f" got {id=}")
+def nieme(L,n):
+    x = L[5*n:5*n+5]
+    try:
+        v = int(x,16)
+    except:
+        print(f"{x=}")
+        return x
+    return v
 
-    comport = "/dev/ttyUSB0"
-    # sendCommand(comport,"y")     # t= actual values, x= "12345" 1M times, "y" hexa in ascending order
-    cmd = "y"    # t= actual values, x= "12345" 1M times, "y" hexa in ascending order
+import serial.tools.list_ports
+def go(n,cmd):
     try:
         handleComport = serial.Serial(comport, 115200)
         handleComport.reset_output_buffer()
@@ -224,7 +222,7 @@ if __name__ == "__main__":
     adcSignalVoltAll  = []
     adcSignedIntegerAll = []
     handleComport.reset_output_buffer()
-    for i in range(64): # 2**6
+    for i in range(n): #64): # 2**6
         adcSamples = 16384 # 2**14
         # donc on lira 2**6 * 2**14 = 2**20 = 1M
         adcSignalVolt = []    
@@ -241,8 +239,99 @@ if __name__ == "__main__":
         adcSignalVoltAll +=adcSignalVolt
         adcSignedIntegerAll += adcSignedInteger
 
+    B = adcByteListAll
+    L = adcSignedIntegerAll
+    V = [] # ce sera adcByteListAll décodé
+    Q=list(range(len(V))) # on devrait avoir V=Q
+
+    for i in range(0,len(B),5):
+        x = B[i:i+5]
+        v = int(x,16)
+        V.append(v)
+
+    Q=list(range(len(V))) # on devrait avoir V=Q
+    print(f"Q==V = {Q==V}")
+    print(f"Q==L = {Q==L}")
+
+    for i in range(1,len(L)):
+        if float(L[i-1])*float(L[i]) <0 or L[i]==0:
+            print(f"chgt de signe autour de {i=} {L[i-1]=} {L[i]=}")
+    handleComport.close()
+# FIN  go(n,cmd):
+
+def miseEnFile(name,Y):
+    f=open(name,"w")
+    for x in Y:
+        f.writelines(f"{x}\n")
+    f.close()
+# FIN  miseEnFile(name,Y)
+
+#*********************************************************************************
+#                               EN AVANT SIMONE
+#*********************************************************************************
+comport = "/dev/ttyUSB0"
+try:
+    n = int(input("entre n "))
+except:
+    n=64
+print(f"{n=}")
+print("cmd = 't': actual values, 'x':  12345 1M times, 'y':  hexa in ascending order")
+try:
+    cmd = input("entre cmd ")
+except:
+    cmd="t"
+print(f"{cmd=}")
+
+try:
+    handleComport = serial.Serial(comport, 115200)
+    handleComport.reset_output_buffer()
+    handleComport.write(bytearray(str(cmd),'utf8'))
+    # handleComport.close()
+except:
+    print("Error send command")
+    exit(0)
+nMax = (1024*1024)//(16*1024) # nb max de lecture de 16k 
+adcByteListAll = 0
+adcSignalVoltAll  = []
+adcSignedIntegerAll = []
+handleComport.reset_output_buffer()
+for i in range(n): #64): # 2**6
+    adcSamples = 16384 # 2**14
+    # donc on lira 2**6 * 2**14 = 2**20 = 1M
+    adcSignalVolt = []    
+    adcSignalFloatNormalized = []
+    adcSignedInteger = []
+    handleComport.reset_input_buffer()
+    handleComport.write(bytearray("*",'utf8')) # Read 16384 adc values 
+    adcByteList = handleComport.read(5*adcSamples)
+    dataConvertTEI0023(adcByteList, adcSamples, adcSignalVolt, adcSignalFloatNormalized, adcSignedInteger)
+    if i==0:
+        adcByteListAll = adcByteList
+    else:
+        adcByteListAll += adcByteList
+    adcSignalVoltAll +=adcSignalVolt
+    adcSignedIntegerAll += adcSignedInteger
+
 B = adcByteListAll
 L = adcSignedIntegerAll
-for i in range(1,len(L)):
-    if float(L[i-1])*float(L[i]) <0 or L[i]==0:
-        print(f"{i=} {L[i-1]=} {L[i]=}")
+if cmd=="y":
+    print("testing cmd=t")
+    V = [] # ce sera adcByteListAll décodé
+    Q=list(range(len(V))) # on devrait avoir V=Q
+
+    for i in range(0,len(B),5):
+        x = B[i:i+5]
+        v = int(x,16)
+        V.append(v)
+
+        Q=list(range(len(V))) # on devrait avoir V=Q
+        print(f"Q==V = {Q==V}")
+        print(f"Q==L = {Q==L}")
+
+        for i in range(1,len(L)):
+            if float(L[i-1])*float(L[i]) <0 or L[i]==0:
+                print(f"chgt de signe autour de {i=} {L[i-1]=} {L[i]=}")
+handleComport.close()
+import numpy as np
+S=np.array(adcSignalVoltAll)
+S -= S.mean()
