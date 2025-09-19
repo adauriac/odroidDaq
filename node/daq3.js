@@ -56,12 +56,14 @@ function initParser() {
                 let x3 = data[i+3]<=57 ? data[i+3]-48 : data[i+3]-55;// JC
                 let x4 = data[i+4]<=57 ? data[i+4]-48 : data[i+4]-55;// JC
                 var value = 65536*x0 + 4096*x1 + 256*x2 + 16*x3 + x4;// JC
-                if (value > threshold)// JC
-                    value = value - maxInt// JC
-                if (value < min) min =value// JC
-                if (value > max) max =value// JC
-                // signal tableau d'entiers +/- // JC
+                if (value > threshold)// Threhold=2**17-1
+                    value = value - maxInt // maxInt = 2**18
+                if (value < min) min =value
+                if (value > max) max =value
+                // signal tableau d'entiers +/- 
                 signal.push(value)// JC
+//		for (let q=0;q<5;q++) // bidon
+//		    consolelog("@ "+data[i+q],100)// bidon
             }// JC
         } else {
             consolelog(`a la pas JC`,10)
@@ -312,7 +314,10 @@ function dataCollect(adcSamples){
             })
         }
     } else {
-        setParameter('t').then( ()=>{
+	cmd = 't' // t: actual, x: 12345 x 1M times, y: O 1  2 ... 2**20-1
+	if (cmd !='t')
+	    consolelog("ATTENTION FAKE MEASURE !! (change cmd to 't' in daq3.js l317)")
+        setParameter(cmd).then( ()=>{
             consolelog('trig...',10)
             for (var i=0; i!= adcSamples; i+=16){ 
                 setParameter('*').then( ()=>{
