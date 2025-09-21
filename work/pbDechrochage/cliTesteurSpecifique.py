@@ -19,30 +19,17 @@ Further explonations are available in the Trenz Electronic wiki.
 import serial  # Serial/Comport connection
 import numpy as np # FFT window function generating data
 import serial.tools.list_ports
+import sys
 
-def dataConvertTEI0023(adcByteList, adcSamples, adcSignalVolt, adcSignalFloatNormalized, adcSignedInteger):
-    for adcSingleValue in range(0, adcSamples):
-        adcSingleValue = ((adcSingleValue)*5) # 5 nibble = 20 > 18 bit
-        # ADC resolution is 18bit, positive values reach from 0 to 131071, 
-        # negatives values from 131072 to 262142        
-        adcIntRaw = int(adcByteList[adcSingleValue:adcSingleValue+5], 16)
-        if False: # NOT SIGNED, for SIGNED use True
-            if adcIntRaw > 131071:
-                adcIntRaw = int(adcIntRaw - 262142)
-        adcSignalVolt.append(float(adcIntRaw)*(2*5.0*1/0.45)/262142) # (2*Vref*ADCgain) / 2*maxInt 149
-        adcSignalFloatNormalized.append(adcIntRaw/131071)
-        adcSignedInteger.append(adcIntRaw)
-        
- 
 #*********************************************************************************
 #                               EN AVANT SIMONE
 #*********************************************************************************
 comport = "/dev/ttyUSB0"
-n=1
-# print(f"{n=}")
-cmd="t"
-# print(f"{cmd=}")
-
+n = int(input("il y aura n * 2**14 points, n<=2**6. Entrez n=1 ou 2 ... ou 64 "))
+cmd = input("t= normal, x=12345...12345, y= nombre croissant de 0 1M-1. Enntrez t/x/y  ")
+SIGNED = int(input("Entrez 0 si NON SIGNE, !0 sinon "))
+f = open(f"tmp_{n}_{cmd}_{SIGNED}","w")
+f.writelines(f"# using {n=} {cmd=} { SIGNED=}\n")
 try:
     handleComport = serial.Serial(comport, 115200)
     handleComport.reset_output_buffer()
@@ -51,23 +38,21 @@ try:
 except:
     print("Error send command")
     exit(0)
-nMax = (1024*1024)//(16*1024) # nb max de lecture de 16k 
-adcByteListAll = 0
-adcSignalVoltAll  = []
-adcSignedIntegerAll = []
-handleComport.reset_output_buffer()
-print("# value string (from cli)");
-for i in range(n): #64): # 2**6
-    adcSamples = 16384 # 2**14
-    # donc on lira 2**6 * 2**14 = 2**20 = 1M
-    adcSignalVolt = []    
-    adcSignalFloatNormalized = []
-    adcSignedInteger = []
+    nMax = (1024*1024)//(16*1024) # nb max de lecture de 16k 
+    adcByteListAll = 0
+    handleComport.reset_output_buffer()
+    f.writelines("# value string (from cli)\n");
+for i in range(n): 
+    adcSamples = 16384 # 2**14 au plis on lira 2**6 * 2**14 = 2**20 = 1M
     handleComport.reset_input_buffer()
     handleComport.write(bytearray("*",'utf8')) # Read 16384 adc values 
     adcByteList = handleComport.read(5*adcSamples)
     for i in range(0,5*adcSamples,5):
         ss=adcByteList[i:i+5]
         v= int(ss,16)
-        print(v,ss)
-    print("# value string (from cli)")
+        if SIGNED:
+            if v > 131071:
+                v -=  262142
+        f.writelines(f"{v} {ss} \n")
+print(f.name+" closed")
+f.close()
