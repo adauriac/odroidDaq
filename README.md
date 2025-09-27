@@ -20,3 +20,12 @@ Réunion avec Julien le mer. 28 mai 2025 17:53:12 CEST:
 3. upload.html ne fonctionne pas : probablement du à la localisation des fichiers
 4. pourquoi segment l=2 ou 3 ralentis tant le calcul
 5. penser au déploiement.
+
+Reunion jeu. 25 sept.
+* problème d'anomalie de signal au petit temps pas important
+* faire sortir du python de Pierre l'entree et la sortie de welch (fft3.py)
+* faire sortir de welchise 1'entree et la sortie de welch
+* differents naviguateurs
+* plusieurs segments
+* penser a supprimer le tableau dataWork de welchise1 si inutile
+* faire un script node qui se compare a welchSimuleParFft.py

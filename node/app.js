@@ -2,7 +2,7 @@ const PORT = 3000;
 const serverVersion = '20230509';
 // version adaptée à l'ampli diff_JFE2140
 // gain 5/50, gpio led
-
+let SQRTISE = 1
 let JCFFT = 1 // to use either the pld python version or the new js version (JCFFT->new javascript)
 let JC = 1
 // const verboseThresholdGlobal = Number.MAX_SAFE_INTEGER // never printed 
@@ -68,6 +68,7 @@ var fft_X_N= new Float64Array(), fft_Y_N= new Float64Array()
 /*                      POUR TESTER WELCH                                */
 /* ********************************************************************* */
 
+consolelog(`# SQRTISE=${SQRTISE}`,1000)
 consolelog(`# flag JCFFT=${JCFFT}`)
 if (0)
     testAndQuit(128,5,1./10) // testAndQuit(npts,w,T) signal = sin(w*t) echatillonne a 0,T,2*T,...,(npts-1)*T 
@@ -707,6 +708,8 @@ function welchise1(data,freqSampling) {
 	let re = fftOut[2*i]
 	let im = fftOut[2*i+1]
 	P[i] = c*(re*re+im*im)
+	if (SQRTISE)
+	    P[i]=Math.sqrt(P[i])
 	if (i!=N/2)
 	    P[i] *= 2
     }
