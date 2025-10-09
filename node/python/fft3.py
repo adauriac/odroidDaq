@@ -67,8 +67,7 @@ def main():
     data=[]
     for d in data_input.values():
         data.append(float(d))
-    sys.stderr.write('\nPY:fft3  fs =' + str(fs) + ' seg=' +str(seg) +' N='+ str(len(data))+'\n')
-    
+     
     # FFT
     # avec seg =1
     nbperseg = samples * 1024 
@@ -78,7 +77,10 @@ def main():
     sys.stderr.write("PY: commande lancee : signal.welch(data, fs, 'hann',nperseg=nbperseg, scaling='density') ")
     sys.stderr.write("avec fs=%d nbperseg=%d len(data)=%d\n"%(fs,nbperseg,len(data)))
 # f, Pxx sont des ndarray
-    sys.stderr.write('\nPY:computed..' + str(f1.size))
+    for x in enumerate(data):
+        sys.stderr.writelines(f"PY: @data {x[0]} {x[1]}\n")
+    for x in enumerate(P1xx_den):
+        sys.stderr.writelines(f"PY: @P1xx_den {x[0]} {x[1]}\n")
     fmin = 0
 
     if ((seg != 1) ): #and (dbl==1) ) : 

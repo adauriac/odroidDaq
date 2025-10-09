@@ -333,7 +333,7 @@ app.get('/fft/', (req, res)=>{
             dataToSend += data.toString();
 	});
 	python.stderr.on('data', function (data) {
-            consolelog(`app.get(/fft/ app.js (l 307) stderr data.toString()= ${data.toString()}`,10);
+            consolelog(`app.get(/fft/ app.js (l 307) stderr data.toString()= ${data.toString()}`,20);
 	});
 	// in close event we are sure that stream from child process is closed
 	python.on('close', (code) => {
