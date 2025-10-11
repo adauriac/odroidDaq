@@ -68,6 +68,7 @@ var fft_X_N= new Float64Array(), fft_Y_N= new Float64Array()
 /*                      POUR TESTER WELCH                                */
 /* ********************************************************************* */
 
+consolelog(`# Test Version`,1000)
 consolelog(`# SQRTISE=${SQRTISE}`,1000)
 consolelog(`# flag JCFFT=${JCFFT}`)
 if (0)
@@ -326,14 +327,14 @@ app.get('/fft/', (req, res)=>{
 	// spawn new child process to call the python script
 	const python = spawn('python3', pythonCmd )
 	// collect data from script
-	consolelog (`# app.get(/fft/) app.js (l 306) : pythonCmd=${pythonCmd}`,15)
+	consolelog (`# app.get(/fft/) app.js (l 306) : pythonCmd=${pythonCmd}`,10)
 	python.stdout.on('data', function (data) {
             // recupere 2 tableaux {f, Pxx_den}
             consolelog(`app.get(/fft/) app.js (l 267) : Pipe data from python script ... data.length= ${data.length}`,10);
             dataToSend += data.toString();
 	});
 	python.stderr.on('data', function (data) {
-            consolelog(`app.get(/fft/ app.js (l 307) stderr data.toString()= ${data.toString()}`,20);
+            consolelog(`app.get(/fft/ app.js (l 307) stderr data.toString()= ${data.toString()}`,10);
 	});
 	// in close event we are sure that stream from child process is closed
 	python.on('close', (code) => {

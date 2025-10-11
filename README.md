@@ -29,3 +29,6 @@ Reunion jeu. 25 sept.
 * plusieurs segments
 * penser a supprimer le tableau dataWork de welchise1 si inutile
 * faire un script node qui se compare a welchSimuleParFft.py
+
+branch testingWelch
+python/fft3.py sort dans une fichier situé à la racine les valeurs des entrees et sorties

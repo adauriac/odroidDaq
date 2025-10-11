@@ -34,7 +34,7 @@ def main():
     # list of command line arguments
     # on doit passer fs(freq echantillons) et seg(segmentation) en arguments
     argumentList = sys.argv[1:]
-    
+
     # Options
     options = "f:s:m:d:"
     try:
@@ -73,7 +73,17 @@ def main():
     nbperseg = samples * 1024 
     # segmentation p  seg=N//p
     #boxcar, triang, blackman, hamming, hann, bartlett, flattop, parzen, bohman, blackmanharris, nuttall, barthann
+    f = open("frompytData","w")
+    for x in data:
+        f.writelines(f"{x}\n")
+    f.close()
+    
     f1, P1xx_den = signal.welch(data, fs, 'hann',nperseg=nbperseg, scaling='density')
+    
+    f = open("frompytP1xx","w")
+    for x in P1xx_den:
+        f.writelines(f"{x}\n")
+    f.close()
     sys.stderr.write("PY: commande lancee : signal.welch(data, fs, 'hann',nperseg=nbperseg, scaling='density') ")
     sys.stderr.write("avec fs=%d nbperseg=%d len(data)=%d\n"%(fs,nbperseg,len(data)))
 # f, Pxx sont des ndarray
