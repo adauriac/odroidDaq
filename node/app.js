@@ -25,9 +25,10 @@ const gpio = require("onoff").Gpio
 // pour la manipulation de fichiers statiques
 const path = require('path')
 var fs = require('fs');
-var FFT = require('./lib/fft.js') // JC ?????????????????
 //les pages web sont dans le dossier 'web'
 var express = require('express');
+const FFTW = require("fftw-js");
+
 const { parseArgs } = require('util');
 const { setgroups } = require('process');
 const app = express()
@@ -276,15 +277,15 @@ app.get('/fft/', (req, res)=>{
     gain = gain * acq_extgain * acq_gainX10
     var data= daq3.getSignalData(gain)
     var seg = Number(req.query['seg'])
+    consolelog(`app.js l280 seg=${seg}`,20)
     setLEDstatus(1)
-    if (JCFFT) {
-	// seg is NOT the number of segments but a parameter the actual number of seg is 2**(seg)-1
-	if ((seg>3) || (seg<=0))       // we treat only the case seg=1,2,3.  todo: warn the user on the client side 
-	    seg = 1
-	// here seg = 1 or 2 or 3
+    if (JCFFT) { // JC VERSION OF WELCH
 	let freqMin = TEIs.getModule(TEImodule).AdcSamplingRate*1.0/(data.length)
-	consolelog(`app.get(/fft/) (l 267) javascript welch in progress seg=${seg}`,10); 
-	let result = welchise1(data,seg) // result is an array
+	consolelog(`app.get(/fft/) (l 267) javascript welch in progress seg=${seg}`,20); 
+	const fs = TEIs.getModule(TEImodule).AdcSamplingRate;
+	//let result = welchise1(data,seg) // result is an array
+	let nbperseg = seg*1024;
+	let result = welchOptim(data,fs,nbperseg);
 	let dataToSend = '{"fft_x1":' + generateFft_x(data.length,freqMin)
 	dataToSend += ','
 	dataToSend += '"fft_y1":' + jsonize(result)+',\n'
@@ -327,7 +328,7 @@ app.get('/fft/', (req, res)=>{
 	// spawn new child process to call the python script
 	const python = spawn('python3', pythonCmd )
 	// collect data from script
-	consolelog (`# app.get(/fft/) app.js (l 306) : pythonCmd=${pythonCmd}`,10)
+	consolelog (`# app.get(/fft/) app.js (l 306) : pythonCmd=${pythonCmd}`,20)
 	python.stdout.on('data', function (data) {
             // recupere 2 tableaux {f, Pxx_den}
             consolelog(`app.get(/fft/) app.js (l 267) : Pipe data from python script ... data.length= ${data.length}`,10);
@@ -843,3 +844,51 @@ function generateFft_x(dataLength,freqMin) {
     return dataToSend
 }  // FIN function generateFft_x(key,dataLength,freqMin) {
 // *************************************************************************
+
+function hanning(M) {
+    consolelog(`app.js l847 M=${M}`);
+    return Array.from({ length: M }, (_, n) => 0.5 - 0.5 * Math.cos((2 * Math.PI * n) / (M - 1)));
+}  // FIN function hanning(M) {
+// **********************************************************************************************************
+
+// --- Welch optimisé ---
+function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
+    consolelog(`app.js l853 entering welch with  fs=${fs} nperseg=${nperseg} noverlap=${noverlap} signal(0:1)=${signal[0]} ${signal[1]} `,20); 
+    if (noverlap === null)
+	noverlap = Math.floor(nperseg / 2);
+    const step = nperseg - noverlap;
+    if (step <= 0)
+	throw new Error("noverlap doit être < nperseg");
+
+    const window = hanning(nperseg);
+    consolelog(`app.js 861 window(0..3)=${window[0]} ${window[1]} ${window[2]} ${window[3]}`,20)
+    const U = window.reduce((acc, w) => acc + w*w, 0);
+
+    const fft = new FFTW.FFT(nperseg);
+    const nSegments = Math.floor((signal.length - nperseg) / step) + 1;
+    if (nSegments <= 0)
+	return [] ;
+
+    const half = Math.floor(nperseg / 2);
+    const Pxx = new Float64Array(half + 1);
+
+    for (let seg = 0; seg < nSegments; seg++) {
+        const start = seg * step;
+        const segment = signal.slice(start, start + nperseg).map((v,i) => v*window[i]);
+	consolelog(`app.js l871 seg=${seg} segment(0..3)=${segment[0]} ${segment[1]} ${segment[2]} ${segment[3]}`,20);
+        const spectrum = fft.forward(segment);
+        for (let k = 0; k <= half; k++) {
+            const re = spectrum[2*k];
+            const im = spectrum[2*k+1];
+            Pxx[k] += (re*re + im*im)/(U*fs);
+        }
+    }
+
+    for (let k = 0; k <= half; k++) {
+        Pxx[k] /= nSegments;
+    }
+    consolelog(`app.js l882 leaving welch with  Pxx[0]=${Pxx[0]}`,20); 
+
+    return Pxx ;
+}  // FIN function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
+// ***************************************************************************************************
