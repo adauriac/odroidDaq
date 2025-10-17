@@ -283,9 +283,14 @@ app.get('/fft/', (req, res)=>{
 	let freqMin = TEIs.getModule(TEImodule).AdcSamplingRate*1.0/(data.length)
 	consolelog(`app.get(/fft/) (l 267) javascript welch in progress seg=${seg}`,20); 
 	const fs = TEIs.getModule(TEImodule).AdcSamplingRate;
-	//let result = welchise1(data,seg) // result is an array
-	let nbperseg = seg*1024;
-	let result = welchOptim(data,fs,nbperseg);
+	let result =0
+	if (false) {
+	    result = welchise1(data,seg) // result is an array
+	}
+	else {
+	    let nbperseg = acq_samples*1024;// acq_samples = variable globale affectee par samples);
+	    result = welchOptim(data,fs,nbperseg) 
+	}
 	let dataToSend = '{"fft_x1":' + generateFft_x(data.length,freqMin)
 	dataToSend += ','
 	dataToSend += '"fft_y1":' + jsonize(result)+',\n'
@@ -846,14 +851,14 @@ function generateFft_x(dataLength,freqMin) {
 // *************************************************************************
 
 function hanning(M) {
-    consolelog(`app.js l847 M=${M}`);
+    consolelog(`app.js l847 hamming with M=${M}`);
     return Array.from({ length: M }, (_, n) => 0.5 - 0.5 * Math.cos((2 * Math.PI * n) / (M - 1)));
 }  // FIN function hanning(M) {
 // **********************************************************************************************************
 
 // --- Welch optimisé ---
 function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
-    consolelog(`app.js l853 entering welch with  fs=${fs} nperseg=${nperseg} noverlap=${noverlap} signal(0:1)=${signal[0]} ${signal[1]} `,20); 
+    consolelog(`app.js l853 entering welchOptim with  fs=${fs} nperseg=${nperseg} noverlap=${noverlap} signal(0:1)=${signal[0]} ${signal[1]} `,20); 
     if (noverlap === null)
 	noverlap = Math.floor(nperseg / 2);
     const step = nperseg - noverlap;
@@ -861,11 +866,12 @@ function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
 	throw new Error("noverlap doit être < nperseg");
 
     const window = hanning(nperseg);
-    consolelog(`app.js 861 window(0..3)=${window[0]} ${window[1]} ${window[2]} ${window[3]}`,20)
     const U = window.reduce((acc, w) => acc + w*w, 0);
 
     const fft = new FFTW.FFT(nperseg);
     const nSegments = Math.floor((signal.length - nperseg) / step) + 1;
+    consolelog(`app.js 861 in welchOptim window(0..3)=${window[0]} ${window[1]} ${window[2]} ${window[3]}`,20)
+    consolelog(`app.js 861 in welchOptim nperseg=${nperseg} |signal|=${signal.length} step=${step} nSegments=${nSegments}`,20)
     if (nSegments <= 0)
 	return [] ;
 
@@ -888,7 +894,6 @@ function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
         Pxx[k] /= nSegments;
     }
     consolelog(`app.js l882 leaving welch with  Pxx[0]=${Pxx[0]}`,20); 
-
-    return Pxx ;
+    return Pxx.map(Math.sqrt);
 }  // FIN function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
 // ***************************************************************************************************

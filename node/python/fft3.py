@@ -34,7 +34,8 @@ def main():
     # list of command line arguments
     # on doit passer fs(freq echantillons) et seg(segmentation) en arguments
     argumentList = sys.argv[1:]
-
+    ftrace = open("frompytTrace","w")
+    
     # Options
     options = "f:s:m:d:"
     try:
@@ -55,12 +56,13 @@ def main():
             elif currentArgument in ['-d']:
                 # 2 ffts
                 dbl = int(currentValue)
-                
     except getopt.error as err:
         # output error, and return with an error code
         exit (0) 
 
-      # Store the data as an array in 'data_input'
+    ftrace.writelines(f"entering fft3 with {fs=} {samples=} {seg=}\n")
+
+    # Store the data as an array in 'data_input'
     data_input = read_in()
 
     #conversion en tableau de float
@@ -79,6 +81,7 @@ def main():
     f.close()
     
     f1, P1xx_den = signal.welch(data, fs, 'hann',nperseg=nbperseg, scaling='density')
+    ftrace.writelines(f"calling qignal.welch with {len(data)=} {fs=} {nbperseg=}\n")
     
     f = open("frompytP1xx","w")
     for x in P1xx_den:
@@ -101,6 +104,8 @@ def main():
     
         nbperseg = samples * 1024/seg
         f2, P2xx_den = signal.welch(data, fs, 'hann',nperseg=nbperseg, scaling='density')
+        ftrace.writelines(f"re-calling signal.welch with {len(data)=} {fs=} {nbperseg=}\n")
+
         sys.stderr.write("PY: commande Relancee (seg>1) : signal.welch(data, fs, 'hann',nperseg=nbperseg, scaling='density') ")
         sys.stderr.write("avec fs=%d nbperseg=%d len(data)=%d\n"%(fs,nbperseg,len(data)))
         ## on ne garde les valeurs que jusqu'à f =fmin
@@ -128,6 +133,7 @@ def main():
     numpyData = {'fft_x1': fout , "fft_y1": Pout, 'f0': fmin ,'fft_x2': f2 , "fft_y2": np.sqrt(P2xx_den) }
     sys.stdout.write(json.dumps(numpyData,  cls=NumpyArrayEncoder) )
 
+    ftrace.close()
     sys.stderr.write('\nPY:done')
     return fmin
 
