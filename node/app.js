@@ -284,11 +284,12 @@ app.get('/fft/', (req, res)=>{
 	consolelog(`app.get(/fft/) (l 267) javascript welch in progress seg=${seg}`,20); 
 	const fs = TEIs.getModule(TEImodule).AdcSamplingRate;
 	let result =0
-	if (false) {
+	let nbperseg = acq_samples*1024;// acq_samples = variable globale affectee par samples);
+	const oldJC = false
+	if (oldJC) { 
 	    result = welchise1(data,seg) // result is an array
 	}
 	else {
-	    let nbperseg = acq_samples*1024;// acq_samples = variable globale affectee par samples);
 	    result = welchOptim(data,fs,nbperseg) 
 	}
 	let dataToSend = '{"fft_x1":' + generateFft_x(data.length,freqMin)
@@ -299,12 +300,19 @@ app.get('/fft/', (req, res)=>{
 	    dataToSend += '"fft_x2": 0,\n'
 	    dataToSend += '"fft_y2": 0.0}'
 	} else {
-	    freqMin *=  (seg==2) ? 2 : 4;
+	    if (oldJC) 
+		freqMin *=  (seg==2) ? 2 : 4;
+	    else
+		freqMin *=  seg;
 	    consolelog(`app.get(/fft/) (l 287) f0=${freqMin} seg=${seg}`,10) 
 	    dataToSend += `"f0": ${freqMin},\n` 
 	    dataToSend += '"fft_x2": '+generateFft_x(data.length,freqMin)
 	    dataToSend += ','
-	    result = (seg==2) ? welchise2(data,seg) : welchise3(data,seg)
+	    if (oldJC) {
+		result = (seg==2) ? welchise2(data,seg) : welchise3(data,seg)
+	    } else {
+		result = welchOptim(data,fs,Math.trunc(nbperseg/seg))
+	    }
 	    consolelog(`app.get(/fft/) (l 293) result.length=${result.length}`,10) 
 	    dataToSend += '"fft_y2":' + jsonize(result) + '}'
 	}	    
@@ -342,8 +350,8 @@ app.get('/fft/', (req, res)=>{
 	python.stderr.on('data', function (data) {
             consolelog(`app.get(/fft/ app.js (l 307) stderr data.toString()= ${data.toString()}`,10);
 	});
-	// in close event we are sure that stream from child process is closed
 	python.on('close', (code) => {
+	    // in close event we are sure that stream from child process is closed
             consolelog(`child process close all stdio with code ${code}`,10);
             // dataTosend -> fft_X et fft_Y pour eventuelle sauvegardesupprime les fichiers
 	    consolelog(`app.get(/fft/) app.js (l 321) dataToSend=${dataToSend} `,10)
@@ -372,10 +380,6 @@ app.get('/fft/', (req, res)=>{
 	/* Stringify the array before send to py_process */
 	python.stdin.write(JSON.stringify(data) )
 	consolelog(`app.get(/fft (l 343) welch en python data(0,1,2,3, ..., last)= ${data[0]},${data[1]},${data[2]},${data[3]},... ,${data[data.length-1]} len=${data.length}`,10)
-	if (false) 
-	    for (let i=0;i<data.length;i++) {
-		consolelog(data[i],10)
-	    } // to log the input of the welch verbose=15 and verboseThresholdGlobal = 11
 	/* Close the stream */
 	python.stdin.end();
     } // fin else de if (JCFFT)

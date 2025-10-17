@@ -14,3 +14,8 @@ app.js recoit l'ordre de calculer la xformée de Welch/ en utilisant fft3.py
 	    on recommence avec f2, P2xx\_den = signal.welch(data, fs, 'hann',nperseg=nbperseg, scaling='density')
 	c/ calcul Pout=np.sqrt(Pxx1\_den) Pout2=np.sqrt(Pxx2\_den)
 	retourne en json f1,Pout1,f2,Pout2 
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Dernière abscisse de la fft vaut 1000000 quelque soit Sample kS et quelque soit la segmentation, mais le nombre de 
+lignes est divisé par segmentation nbLignes, donc la premiere frequence non nulle est multipliée par segmentation
+
+
