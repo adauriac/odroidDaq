@@ -285,13 +285,7 @@ app.get('/fft/', (req, res)=>{
 	const fs = TEIs.getModule(TEImodule).AdcSamplingRate;
 	let result =0
 	let nbperseg = acq_samples*1024;// acq_samples = variable globale affectee par samples);
-	const oldJC = false
-	if (oldJC) { 
-	    result = welchise1(data,seg) // result is an array
-	}
-	else {
-	    result = welchOptim(data,fs,nbperseg) 
-	}
+	result = welchOptim(data,fs,nbperseg) 
 	let dataToSend = '{"fft_x1":' + generateFft_x(data.length,freqMin)
 	dataToSend += ','
 	dataToSend += '"fft_y1":' + jsonize(result)+',\n'
@@ -300,19 +294,12 @@ app.get('/fft/', (req, res)=>{
 	    dataToSend += '"fft_x2": 0,\n'
 	    dataToSend += '"fft_y2": 0.0}'
 	} else {
-	    if (oldJC) 
-		freqMin *=  (seg==2) ? 2 : 4;
-	    else
-		freqMin *=  seg;
+	    freqMin *=  seg;
 	    consolelog(`app.get(/fft/) (l 287) f0=${freqMin} seg=${seg}`,10) 
 	    dataToSend += `"f0": ${freqMin},\n` 
 	    dataToSend += '"fft_x2": '+generateFft_x(data.length,freqMin)
 	    dataToSend += ','
-	    if (oldJC) {
-		result = (seg==2) ? welchise2(data,seg) : welchise3(data,seg)
-	    } else {
-		result = welchOptim(data,fs,Math.trunc(nbperseg/seg))
-	    }
+	    result = welchOptim(data,fs,Math.trunc(nbperseg/seg))
 	    consolelog(`app.get(/fft/) (l 293) result.length=${result.length}`,10) 
 	    dataToSend += '"fft_y2":' + jsonize(result) + '}'
 	}	    
