@@ -15,7 +15,6 @@ app.js recoit l'ordre de calculer la xformée de Welch/ en utilisant fft3.py
 	c/ calcul Pout=np.sqrt(Pxx1\_den) Pout2=np.sqrt(Pxx2\_den)
 	retourne en json f1,Pout1,f2,Pout2 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Dernière abscisse de la fft vaut 1000000 quelque soit Sample kS et quelque soit la segmentation, mais le nombre de 
-lignes est divisé par segmentation nbLignes, donc la premiere frequence non nulle est multipliée par segmentation
-
+Dernière abscisse de la fft vaut 1000000 quelque soit Sample kS et quelque soit la segmentation
+la plus petite fréquence non nulle est proportionnelle au nombre de segment 
 
