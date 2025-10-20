@@ -33,7 +33,7 @@ function initParser() {
     parser = sp.pipe(new ByteLengthParser({ length: 16384 * nbBytes }))
     parser.on('data', function (data) {
         const startParserFunction = performance.now(); // JC 
-        consolelog(`initParser daq3.js (l 37) Received acceptable data! ${typeof signal}  ${data.length}`,10 )
+        consolelog(`initParser daq3.js (l 37) Received acceptable data! ${typeof signal}  ${data.length}`,10)
         // positive values reach from 0 to AdcTreshold, 
         // negatives values from AdcTreshold to AdcTreshold*2 
         var threshold = TEIs.getModule(moduleID).AdcTreshold
@@ -79,7 +79,7 @@ function initParser() {
             }
         }
         const end = performance.now(); // JC
-        consolelog(`Temps d'exécution conversion dans initParser JC: ${(end - start).toFixed(3)} ms`,10);// JC
+        consolelog(`Temps d'exécution conversion dans initParser JC: ${(end - start).toFixed(3)} ms`,10);
 
         if (signal.length === signalLength) // signalLength est une variable globale affectee dans dataCollect
             //envoie un signal de fin d'acquisition
@@ -87,7 +87,7 @@ function initParser() {
 
         consolelog(`initParser daq3.js(l 88) signal length ${signal.length} min: ${min.toString(16)} max: ${max.toString(16)}`,10)
         const endParserFunction = performance.now(); // JC 
-        consolelog(`Temps d'exécution total dans initParser JC: ${(endParserFunction - startParserFunction).toFixed(3)} ms`,10);// JC
+        consolelog(`Temps d'exécution total dans initParser JC: ${(endParserFunction - startParserFunction).toFixed(3)} ms`,10);
     }) // FIN fonction de parser.on JC
 } // FIN function initParser()
 /********************************************************************************************/

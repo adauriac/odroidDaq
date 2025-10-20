@@ -2,7 +2,6 @@ const PORT = 3000;
 const serverVersion = '20230509';
 // version adaptée à l'ampli diff_JFE2140
 // gain 5/50, gpio led
-let SQRTISE = 1
 let JCFFT = 1 // to use either the pld python version or the new js version (JCFFT->new javascript)
 let JC = 1
 // const verboseThresholdGlobal = Number.MAX_SAFE_INTEGER // never printed 
@@ -69,12 +68,7 @@ var fft_X_N= new Float64Array(), fft_Y_N= new Float64Array()
 /*                      POUR TESTER WELCH                                */
 /* ********************************************************************* */
 
-consolelog(`# Test Version`,1000)
-consolelog(`# SQRTISE=${SQRTISE}`,1000)
 consolelog(`# flag JCFFT=${JCFFT}`)
-if (0)
-    testAndQuit(128,5,1./10) // testAndQuit(npts,w,T) signal = sin(w*t) echatillonne a 0,T,2*T,...,(npts-1)*T 
-/**************************************************************************/
 
 // intervalle de cligotement de la led status
 var blinkLEDinterval =setInterval(blinkLEDstatus, 500);
@@ -201,7 +195,7 @@ app.get('/savefft/', (req, res)=>{
         fs.writeFileSync(fname, fftStr );
 	consolelog(`${fname} Saved!`,10);
     }catch (err) {       
-        consolelog( err)  
+        consolelog(err)  
     }
     // si on a fait une fft avec seg>1 on a 2 ffts
     if (fft_X_N.length ){
@@ -215,7 +209,7 @@ app.get('/savefft/', (req, res)=>{
 	    consolelog(`${fname} Saved!`,10);
         }
         catch (err){
-            consolelog( err)  
+            consolelog(err)  
         }
     }
     res.send({'fname' :fname});
@@ -277,11 +271,11 @@ app.get('/fft/', (req, res)=>{
     gain = gain * acq_extgain * acq_gainX10
     var data= daq3.getSignalData(gain)
     var seg = Number(req.query['seg'])
-    consolelog(`app.js l280 seg=${seg}`,20)
+    consolelog(`app.js l280 seg=${seg}`,10)
     setLEDstatus(1)
     if (JCFFT) { // JC VERSION OF WELCH
 	let freqMin = TEIs.getModule(TEImodule).AdcSamplingRate*1.0/(data.length)
-	consolelog(`app.get(/fft/) (l 267) javascript welch in progress seg=${seg}`,20); 
+	consolelog(`app.get(/fft/) (l 267) javascript welch in progress seg=${seg}`,10); 
 	const fs = TEIs.getModule(TEImodule).AdcSamplingRate;
 	let result =0
 	let nbperseg = acq_samples*1024;// acq_samples = variable globale affectee par samples);
@@ -328,7 +322,7 @@ app.get('/fft/', (req, res)=>{
 	// spawn new child process to call the python script
 	const python = spawn('python3', pythonCmd )
 	// collect data from script
-	consolelog (`# app.get(/fft/) app.js (l 306) : pythonCmd=${pythonCmd}`,20)
+	consolelog (`# app.get(/fft/) app.js (l 306) : pythonCmd=${pythonCmd}`,10)
 	python.stdout.on('data', function (data) {
             // recupere 2 tableaux {f, Pxx_den}
             consolelog(`app.get(/fft/) app.js (l 267) : Pipe data from python script ... data.length= ${data.length}`,10);
@@ -356,9 +350,6 @@ app.get('/fft/', (req, res)=>{
 		fft_X_N.length=0;
 		fft_Y_N.length=0
             }
-            // send data to browser
-            // consolelog("app.get(/fft/ app.js (l 346) dataToSend:" )
-	    // writeAndExit(`${dataToSend}`)
             res.send(dataToSend)
             blinkLEDinterval = setInterval(blinkLEDstatus, 500);
 	});
@@ -375,10 +366,10 @@ app.get('/fft/', (req, res)=>{
 //// reponse à la requete 'listdir?'
 app.get("/listDir/", (req, res)=> {
     // renvoie la liste des fichiersdu dossier 'data
-    consolelog("entering app.get(/listDir/ app.js l 379")
+    consolelog("entering app.get(/listDir/ app.js l 379",10)
     dataFiles.list() .then(
         (files) => {
-	    consolelog(`app.get(/listDir app.js l 382 files=${files}`,18)
+	    consolelog(`app.get(/listDir app.js l 382 files=${files}`,10)
             res.send({'files': JSON.stringify(files) } )
         });
 });
@@ -470,7 +461,7 @@ app.post('/dateset', function (req, res) {
             console.error('err', err);
             consolelog(`log ${stderr}`);
         } else {
-            consolelog("Successfully set the system's datetime",10 );///to ${stdout}`);
+            consolelog("Successfully set the system's datetime",10);
         }
     })
     res.end();
@@ -685,67 +676,6 @@ function quit() {
 } // FIN function quit() { 
 /* *********************************************************************************** */
 
-function welchise1(data,freqSampling) {
-    // a single segment [0,n[
-    let N = data.length
-    //const f = Array.from({ length: N/2 + 1 }, (_, i) => i*freqSampling/N);
-    let U = 0
-    for (let i=0;i<N;i++) {
-	let w = 0.5 - 0.5*Math.cos(2*Math.PI*i/N)
-	U += w*w
-	data[i] *= w
-    }
-    const FFT = require('./lib/fft.js') 
-    const fft = new FFT(N)
-    const c = 1/(freqSampling*U)
-    let fftOut = fft.createComplexArray();
-    fft.realTransform(fftOut, data);
-    fft.completeSpectrum(fftOut);
-    P = new Array(N/2+1)
-    for(let i=0;i<=N/2;i++) {
-	let re = fftOut[2*i]
-	let im = fftOut[2*i+1]
-	P[i] = c*(re*re+im*im)
-	if (SQRTISE)
-	    P[i]=Math.sqrt(P[i])
-	if (i!=N/2)
-	    P[i] *= 2
-    }
-    // console.log(`# welch en javascript freqSampling=${freqSampling} ${N}`)
-    // for (let i=0;i<=N/2;i++) 
-    // 	console.log(i,f[i],P[i])
-    // return [f,P]
-    return P;
-} // function welchise1(data,freqSampling) {
-// ***************************************************************************************
-
-function welchise2(data,freqSampling) {
-    // 3 segments of size N/2 :[0,N/2[,[N/4,3N/4[,[N/2,N[
-    let N = data.length
-    let T1 = welchise1(data.slice(0,N/2),freqSampling) //  slice(d,f)->[d,f[
-    let T2 = welchise1(data.slice(N/4,3*N/4),freqSampling)
-    let T3 = welchise1(data.slice(N/2,N),freqSampling)
-    let P = T1.map((val, i) => (val + T2[i] + T3[i]) / 3);
-    return P;
-} // FIN function welchise2(data,freqSampling) {
-// ***************************************************************************************
-
-function welchise3(data,freqSampling) {
-    // 7 segments of size N/4 :[0,N/4[,[N/8,3N/8[,[N/4,N/2[,[3N/8,5N/8[,
-    // [N/2,3N/4[,[5N/8,7N/8[,[3N/4,N[    
-    let N = data.length
-    let T1 = welchise1(data.slice(0,N/4),freqSampling) //  slice(d,f)->[d,f[
-    let T2 = welchise1(data.slice(N/8,3*N/8),freqSampling)
-    let T3 = welchise1(data.slice(N/4,N/2),freqSampling)
-    let T4 = welchise1(data.slice(3*N/8,5*N/8),freqSampling)
-    let T5 = welchise1(data.slice(N/2,3*N/4),freqSampling)
-    let T6 = welchise1(data.slice(5*N/8,7*N/8),freqSampling)
-    let T7 = welchise1(data.slice(3*N/4,N),freqSampling)
-    let P = T1.map((val, i) => (val+ T2[i]+T3[i]+T4[i]+T5[i]+T6[i]+T7[i])/7);
-    return P;
-} // FIN function welchise3(data,freqSampling) {
-// ***************************************************************************************
-
 function generatedataToSend(N=8192) {
     function generateRepeatedNumberString() {
 	const number = "1.234e-7";
@@ -842,14 +772,13 @@ function generateFft_x(dataLength,freqMin) {
 // *************************************************************************
 
 function hanning(M) {
-    consolelog(`app.js l847 hamming with M=${M}`);
     return Array.from({ length: M }, (_, n) => 0.5 - 0.5 * Math.cos((2 * Math.PI * n) / (M - 1)));
 }  // FIN function hanning(M) {
 // **********************************************************************************************************
 
 // --- Welch optimisé ---
 function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
-    consolelog(`app.js l853 entering welchOptim with  fs=${fs} nperseg=${nperseg} noverlap=${noverlap} signal(0:1)=${signal[0]} ${signal[1]} `,20); 
+    consolelog(`app.js l853 entering welchOptim with  fs=${fs} nperseg=${nperseg} noverlap=${noverlap} signal(0:1)=${signal[0]} ${signal[1]} `,10); 
     if (noverlap === null)
 	noverlap = Math.floor(nperseg / 2);
     const step = nperseg - noverlap;
@@ -861,8 +790,8 @@ function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
 
     const fft = new FFTW.FFT(nperseg);
     const nSegments = Math.floor((signal.length - nperseg) / step) + 1;
-    consolelog(`app.js 861 in welchOptim window(0..3)=${window[0]} ${window[1]} ${window[2]} ${window[3]}`,20)
-    consolelog(`app.js 861 in welchOptim nperseg=${nperseg} |signal|=${signal.length} step=${step} nSegments=${nSegments}`,20)
+    consolelog(`app.js 861 in welchOptim window(0..3)=${window[0]} ${window[1]} ${window[2]} ${window[3]}`,10)
+    consolelog(`app.js 861 in welchOptim nperseg=${nperseg} |signal|=${signal.length} step=${step} nSegments=${nSegments}`,10)
     if (nSegments <= 0)
 	return [] ;
 
@@ -872,7 +801,7 @@ function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
     for (let seg = 0; seg < nSegments; seg++) {
         const start = seg * step;
         const segment = signal.slice(start, start + nperseg).map((v,i) => v*window[i]);
-	consolelog(`app.js l871 seg=${seg} segment(0..3)=${segment[0]} ${segment[1]} ${segment[2]} ${segment[3]}`,20);
+	consolelog(`app.js l871 seg=${seg} segment(0..3)=${segment[0]} ${segment[1]} ${segment[2]} ${segment[3]}`,10);
         const spectrum = fft.forward(segment);
         for (let k = 0; k <= half; k++) {
             const re = spectrum[2*k];
@@ -884,7 +813,7 @@ function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
     for (let k = 0; k <= half; k++) {
         Pxx[k] /= nSegments;
     }
-    consolelog(`app.js l882 leaving welch with  Pxx[0]=${Pxx[0]}`,20); 
+    consolelog(`app.js l882 leaving welch with  Pxx[0]=${Pxx[0]}`,10); 
     return Pxx.map(Math.sqrt);
 }  // FIN function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
 // ***************************************************************************************************
