@@ -81,40 +81,40 @@ function unencrypt(){
 // ******************************************************************************************************
 
 function populate( fileList ){
-       // // et remplit la fenetre
-   var tbody = document.getElementById('files');
+    // // et remplit la fenetre
+    var tbody = document.getElementById('files');
     var trf = document.getElementById('f_0');
-     var i=0
+    var i=0
     fileList.forEach(element => {
-   
-                //  console.log(element);
-                  // remplace les _0 par _i
-                  var text = trf.innerHTML.replace(/([_])0/g,  "_"+i)
-                  text = text.replace(/(filename)/g, element)
-                  mytr = document.createElement("tr");
-                  mytr.innerHTML = text
-                  tbody.appendChild(mytr)
-                  // liste des fichiers dispos
-                  allFiles.push(element)
-                i++
-            });
-      //vire le premier element (origine)    
-      tbody.removeChild(trf)
+        console.log(`upload.js l89 populate element=${element}`);
+	alert(`upload.js l89 populate element=${element}`);
+        // remplace les _0 par _i
+        var text = trf.innerHTML.replace(/([_])0/g,  "_"+i)
+        text = text.replace(/(filename)/g, element)
+        mytr = document.createElement("tr");
+        mytr.innerHTML = text
+        tbody.appendChild(mytr)
+        // liste des fichiers dispos
+        allFiles.push(element)
+        i++
+    });
+    //vire le premier element (origine)    
+    tbody.removeChild(trf)
     console.log(allFiles)
-      //
-     var checks = document.querySelectorAll("input.checkGet")
+    //
+    var checks = document.querySelectorAll("input.checkGet")
 
-     console.log(checks.length)
-     filesToGet.length = checks.length
-     filesToGet.fill(false)
-      console.log(checks.length, filesToGet.length)
+    console.log(checks.length)
+    filesToGet.length = checks.length
+    filesToGet.fill(false)
+    console.log(checks.length, filesToGet.length)
 
-     checks = document.querySelectorAll("input.checkDel")
+    checks = document.querySelectorAll("input.checkDel")
     //  for (var i=0; i!=checksDel.length; i++ ){
     //     checksDel[i].addEventListener("click",  delFiles(i) )
     //  };  
-     filesToDel.length = (checks.length)
-     filesToDel.fill(false)
+    filesToDel.length = (checks.length)
+    filesToDel.fill(false)
 }  // FIN function populate( fileList ){
 // ******************************************************************************************************
 
