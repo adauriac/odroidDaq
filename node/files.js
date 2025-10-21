@@ -11,8 +11,7 @@ consolelog(`file.js said  l7 : directoryPath= ${directoryPath}`,10)
  * remplit  la variable 'dataFiles' avec les noms de fichiers contenus dans le dossier 'data'
  * @returns 
  */
-function listDataFiles()
-{
+function listDataFiles() {
     //rempli dataFiles avec les noms de fichiers de data
     consolelog("entering listDataFiles files.js l 17",10)
     consolelog(`files.js l 18 ${directoryPath}`,10)
@@ -58,7 +57,7 @@ function deleteFileList(files){
         if(err) 
             return console.log(err);
         deleted ++
-        console.log(fname,' deleted successfully', deleted);
+            consolelog(`${fname} deleted successfully`, 10);
          });  
      });
    return deleted
