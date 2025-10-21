@@ -334,18 +334,6 @@ function MakeGetRequest(url, callback) {
 /********************************************************************************************/
 
 /**
- * to get the server's method for welch xform  
- */
-function whichWelch()
-{
-    console.log('whichWelch: entering');
-    let checkButton = document.getElementById("JCBUTTON")
-    MakeGetRequest("/getJCFFT", (resp) => {checkButton.checked=resp.JCFFT ? true :false});
-    //replace getQuery("/getJCFFT")
-}  // FIN function whichWelch()
-/********************************************************************************************/
-
-/**
  * ajoute le commentaire 'data' dans la fenetre 'story'
  * @param {} data 
  */

@@ -143,13 +143,6 @@ app.get('/listSerial/', (req, res)=>{
         } )
 });
 
-//// reponse à la requete 'getJCFFT'
-app.get('/getJCFFT', (req, res)=>{
-    consolelog(`getJCFFT: entering`,10)
-    var x = JCFFT;
-    res.send({ 'JCFFT': x });
-});
-
 //// reponse à la requete 'aquire'
 app.get('/acquire/', (req, res)=>{   
     clearInterval(blinkLEDinterval);
@@ -521,12 +514,6 @@ app.post('/set', function (req, res) {
     }
     else if(req.body.val.search('SQwave')!==-1){
         cmd = 'f'; acq_sqWave = (value === 1)
-    }   
-    else if(req.body.val.search('JCBUTTON')!==-1){
-        consolelog(`app.post(/set  line 511 JCFFT=${JCFFT}`,10)
-	JCFFT = !JCFFT
-	res.end()
-	return
     }   
     // si value =1 commande uppercase, lowercase sinon
     if (value ==1)

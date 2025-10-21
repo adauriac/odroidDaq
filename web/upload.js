@@ -87,7 +87,6 @@ function populate( fileList ){
     var i=0
     fileList.forEach(element => {
         console.log(`upload.js l89 populate element=${element}`);
-	alert(`upload.js l89 populate element=${element}`);
         // remplace les _0 par _i
         var text = trf.innerHTML.replace(/([_])0/g,  "_"+i)
         text = text.replace(/(filename)/g, element)
