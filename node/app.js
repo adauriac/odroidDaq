@@ -70,6 +70,12 @@ var fft_X_N= new Float64Array(), fft_Y_N= new Float64Array()
 
 consolelog(`# flag JCFFT=${JCFFT}`)
 
+// every 10s  show the memory usage
+setInterval(() => {
+  const m = process.memoryUsage();
+  console.log(`Rss used: ${(m.rss / 1024 / 1024).toFixed(2)} MB`);
+}, 10000);
+
 // intervalle de cligotement de la led status
 var blinkLEDinterval =setInterval(blinkLEDstatus, 500);
 /**************************************************************************/
@@ -193,8 +199,8 @@ app.get('/savefft/', (req, res)=>{
         fftStr += fft_X_1[i].toString() + ' ' + fft_Y_1[i].toString() + '\n'
     }
     var directoryPath = path.join(__dirname, '..', 'data/');
-    var fname = directoryPath+name +"_fft_1_" +Date.now() + '.dat'
-    consolelog(`app.js l 197 saving first fft in fname=${fname}`,20)
+    var fname = directoryPath+name +"_fft_1_" + dateNow + '.dat'
+    consolelog(`app.js l 197 saving first fft in fname=${fname}`,10)
     try{
         fs.writeFileSync(fname, fftStr );
 	consolelog(`${fname} Saved!`,10);
@@ -203,14 +209,14 @@ app.get('/savefft/', (req, res)=>{
     }
     // si on a fait une fft avec seg>1 on a 2 ffts
     if (fft_X_N.length ){
-	consolelog(`app.js l206 une autre fft car fft_X_N.length=${fft_X_N.length}`,20)
+	consolelog(`app.js l206 une autre fft car fft_X_N.length=${fft_X_N.length} fft_Y_N.length=${fft_Y_N.length}`,10)
         fftStr='', size = fft_X_N.length
         for (let i=0; i!=size; i++ ){
- 	    consolelog(`app.js l210 i=${i} fft_X_N[i].toString()=${fft_X_N[i].toString()} fft_Y_N[i].toString()=${fft_Y_N[i].toString()}`,20)
+ 	    //consolelog(`app.js l210 i=${i} fft_X_N[i].toString()=${fft_X_N[i].toString()} fft_Y_N[i].toString()=${fft_Y_N[i].toString()}`,10)
             fftStr += fft_X_N[i].toString() + ' ' + fft_Y_N[i].toString() + '\n'
         }
-        fname = "data/"+name +"_fft_N_" + dateNow + '.dat'
-	consolelog(`app.js l 212 saving second fft in fname=${fname}`,20)
+	fname = directoryPath+name +"_fft_N_" +dateNow + '.dat'
+	consolelog(`app.js l 212 saving second fft in fname=${fname}`,10)
         try {
             fs.writeFileSync(fname, fftStr );
 	    consolelog(`${fname} Saved!`,10);
@@ -296,12 +302,12 @@ app.get('/fft/', (req, res)=>{
 	    dataToSend += '"fft_y2": 0.0}'
 	} else {
 	    freqMin *=  seg;
-	    consolelog(`app.get(/fft/) (l 287) f0=${freqMin} seg=${seg}`,10) 
+	    consolelog(`app.get(/fft/) (l 299) f0=${freqMin} seg=${seg}`,10) 
 	    dataToSend += `"f0": ${freqMin},\n` 
-	    dataToSend += '"fft_x2": '+generateFft_x(data.length,freqMin)
+	    dataToSend += '"fft_x2": '+generateFft_x(Math.trunc(nbperseg/seg),freqMin)
 	    dataToSend += ','
 	    result = welchOptim(data,fs,Math.trunc(nbperseg/seg))
-	    consolelog(`app.get(/fft/) (l 293) result.length=${result.length}`,10) 
+	    consolelog(`app.get(/fft/) (l 304) after secund call to welchOptim ${Math.trunc(nbperseg/seg)} result.length=${result.length}`,10) 
 	    dataToSend += '"fft_y2":' + jsonize(result) + '}'
 	}	    
 	// writeAndExit(`dataToSend=${dataToSend}`)
