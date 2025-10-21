@@ -156,7 +156,9 @@ app.get('/acquire/', (req, res)=>{
 //// reponse à la requete 'save'
 app.get('/save/', (req, res)=>{   
     var name= req.query['f']
-    var fname = "data/"+name +"_sig_" +Date.now() + '.dat'    
+    var directoryPath = path.join(__dirname, '..', 'data/');
+    var fname = directoryPath+name +"_sig_" +Date.now() + '.dat'
+    consolelog(`app.js l 161 fname=${fname}`,10)
     // sauvegarde des données temporelles acquises
     var gain = acq_gain
     if (acq_spanComp)
@@ -176,7 +178,7 @@ app.get('/save/', (req, res)=>{
     consolelog(`app.get(/save app.js (l 173) dataStr= ${dataStr}`,10)
     fs.writeFile(fname, dataStr, function (err) {
         if (err) throw err;
-        consolelog('Saved!',10);
+        consolelog(`Saved in ${fname}`,10);
     })
     res.send({'fname' :fname});
 });
@@ -190,7 +192,9 @@ app.get('/savefft/', (req, res)=>{
     for (let i=0; i!=size; i++ ){
         fftStr += fft_X_1[i].toString() + ' ' + fft_Y_1[i].toString() + '\n'
     }
-    var fname = "data/"+name +"_fft_1_" + dateNow + '.dat'
+    var directoryPath = path.join(__dirname, '..', 'data/');
+    var fname = directoryPath+name +"_fft_1_" +Date.now() + '.dat'
+    consolelog(`app.js l 197 saving first fft in fname=${fname}`,20)
     try{
         fs.writeFileSync(fname, fftStr );
 	consolelog(`${fname} Saved!`,10);
@@ -199,11 +203,14 @@ app.get('/savefft/', (req, res)=>{
     }
     // si on a fait une fft avec seg>1 on a 2 ffts
     if (fft_X_N.length ){
+	consolelog(`app.js l206 une autre fft car fft_X_N.length=${fft_X_N.length}`,20)
         fftStr='', size = fft_X_N.length
         for (let i=0; i!=size; i++ ){
+ 	    consolelog(`app.js l210 i=${i} fft_X_N[i].toString()=${fft_X_N[i].toString()} fft_Y_N[i].toString()=${fft_Y_N[i].toString()}`,20)
             fftStr += fft_X_N[i].toString() + ' ' + fft_Y_N[i].toString() + '\n'
         }
         fname = "data/"+name +"_fft_N_" + dateNow + '.dat'
+	consolelog(`app.js l 212 saving second fft in fname=${fname}`,20)
         try {
             fs.writeFileSync(fname, fftStr );
 	    consolelog(`${fname} Saved!`,10);
@@ -377,7 +384,8 @@ app.get("/listDir/", (req, res)=> {
 //// reponse à la requete 'upload?'
 //route to download a file
 app.get('/upload/',(req, res) => {
-    var directoryPath = path.join(__dirname, '..', 'data');  
+    var directoryPath = path.join(__dirname, '..', 'data');
+    consolelog(`app.js l381 directoryPath=${directoryPath}`,10)
     var file = req.query['f'];
     var files = file.split(',')
     if (files.length === 1) {
@@ -405,8 +413,6 @@ app.get('/upload/',(req, res) => {
             res.send({'zip':'out.zip'})
         });
     }
-
-    
 });
 /************************************* requetes POST *********************************/
 

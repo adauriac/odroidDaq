@@ -4,7 +4,7 @@ const { consolelog,verboseThresholdGlobal,JC } = require('./app.js');
 
 var dataFiles= new Array()
 var directoryPath = path.join(__dirname, '..', 'data');
-consolelog(`file.js said : directoryPath= ${directoryPath}`,18)
+consolelog(`file.js said  l7 : directoryPath= ${directoryPath}`,10)
 /********************************************************************************************/
 
 /**
@@ -14,8 +14,9 @@ consolelog(`file.js said : directoryPath= ${directoryPath}`,18)
 function listDataFiles()
 {
     //rempli dataFiles avec les noms de fichiers de data
-    consolelog("entering listDataFiles files.js l 17",18)
-  return new Promise( function(resolve, reject){
+    consolelog("entering listDataFiles files.js l 17",10)
+    consolelog(`files.js l 18 ${directoryPath}`,10)
+    return new Promise( function(resolve, reject){
     try {
         //joining path of directory 
         //passsing directoryPath and callback function
