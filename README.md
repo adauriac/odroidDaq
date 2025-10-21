@@ -32,3 +32,6 @@ Reunion jeu. 25 sept.
 
 branch testingWelch
 python/fft3.py sort dans une fichier situé à la racine les valeurs des entrees et sorties
+
+concernant l'envoi de données partielles, le bouton mode controle bien
+la variable globale mode, mais pour l'instant il manque le "chrunching" pas implémenté

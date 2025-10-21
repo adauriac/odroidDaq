@@ -1043,3 +1043,45 @@ function startCpuTempInterval(){
 }  // FIN function startCpuTempInterval(){    
 /********************************************************************************************/
 
+async function setRadioValueBIDON(radio) {
+    console.log("Affichage set to:", radio.value);
+    
+    //  Envoyer au serveur
+    try {
+    const response = await fetch('/update-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: value })
+    });
+
+    const result = await response.json();
+    console.log("Réponse du serveur :", result);
+  } catch (err) {
+      console.error("Erreur lors de l'envoi au serveur :", err);
+      }
+    
+} // FIN function setRadioValue(radio) {
+/********************************************************************************************/
+
+async function setRadioValue(radio) {
+    // Ici on récupère la valeur du radio bouton cliqué
+    const value = radio.value;
+
+    console.log("Nouvel état :", value);
+
+    try {
+	const response = await fetch('/update-mode', {
+	    method: 'POST',
+	    headers: { 'Content-Type': 'application/json' },
+	    body: JSON.stringify({ mode: value }) // <- utilisez 'value' défini juste au-dessus
+	});
+
+	const result = await response.json();
+	console.log("Réponse du serveur :", result);
+    } catch (err) {
+	console.error("Erreur lors de l'envoi au serveur :", err);
+    }
+} // FIN function setRadioValue(radio) {
+/********************************************************************************************/
+
+

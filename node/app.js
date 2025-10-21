@@ -43,6 +43,7 @@ const FileSaver = require('file-saver');
 const {spawn}= require('child_process');
 const {exec}= require('child_process');
 
+var mode = 'complet'
 var TEImodule =0
 //const teis = require('./TEImodule.js');
 // liste des commandes de gain a envoyer au module daq3
@@ -223,7 +224,8 @@ app.get('/savefft/', (req, res)=>{
 
 //// reponse à la requete 'data'
 // recup de données temporelles dans le daq3
-app.get('/data/', (req, res)=>{   
+app.get('/data/', (req, res)=>{
+    consolelog(`app.js l228 /data/ mode=${mode}`)
     var gain = acq_gain
     if (acq_spanComp)
         gain = acq_gain / 0.8  
@@ -281,6 +283,7 @@ app.get('/fft/', (req, res)=>{
     setLEDstatus(1)
     if (JCFFT) { // JC VERSION OF WELCH
 	let freqMin = TEIs.getModule(TEImodule).AdcSamplingRate*1.0/(data.length)
+	consolelog(`app.js l285 mode=${mode}`,20)
 	consolelog(`app.get(/fft/) (l 267) javascript welch in progress seg=${seg}`,10); 
 	const fs = TEIs.getModule(TEImodule).AdcSamplingRate;
 	let result =0
@@ -414,6 +417,19 @@ app.get('/upload/',(req, res) => {
     }
 });
 /************************************* requetes POST *********************************/
+
+app.post('/update-mode', (req, res) => {
+    consolelog('app.js l 419 /update-mode called',10)
+    const { mode: newMode } = req.body;
+    if (newMode === 'complet' || newMode === 'optimize') {
+	mode = newMode;
+	consolelog(`Mode mis à jour : ${mode}`,10);
+	res.json({ success: true, mode });
+    } else {
+	res.status(400).json({ success: false, message: 'Valeur invalide' });
+    }
+    consolelog(`app.js l 428 mode=${mode}`,10)
+});
 
 app.post('/', function (req, res) {
     consolelog(`* ${req.body}`,10);
