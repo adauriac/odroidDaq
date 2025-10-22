@@ -26,8 +26,7 @@ const path = require('path')
 var fs = require('fs');
 //les pages web sont dans le dossier 'web'
 var express = require('express');
-const FFTW = require("fftw-js");
-
+const FFTW = require("fftw-js"); // retourne un objet  su par console.log(typeof FFTW);
 const { parseArgs } = require('util');
 const { setgroups } = require('process');
 const app = express()
@@ -803,7 +802,10 @@ function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
     const window = hanning(nperseg);
     const U = window.reduce((acc, w) => acc + w*w, 0);
 
+    consolelog(`app.js 806 in welchOptim avant const fft =  new ... nperseg=${nperseg}`,20)
     const fft = new FFTW.FFT(nperseg);
+    consolelog(`app.js 808 in welchOptim apres const fft =  new ...`,20)
+    
     const nSegments = Math.floor((signal.length - nperseg) / step) + 1;
     consolelog(`app.js 861 in welchOptim window(0..3)=${window[0]} ${window[1]} ${window[2]} ${window[3]}`,10)
     consolelog(`app.js 861 in welchOptim nperseg=${nperseg} |signal|=${signal.length} step=${step} nSegments=${nSegments}`,10)
@@ -828,7 +830,135 @@ function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
     for (let k = 0; k <= half; k++) {
         Pxx[k] /= nSegments;
     }
-    consolelog(`app.js l882 leaving welch with  Pxx[0]=${Pxx[0]}`,10); 
+    consolelog(`app.js l882 leaving welch with  Pxx[0]=${Pxx[0]}`,10);
+    if (fft && typeof fft.destroy === 'function')
+        fft.destroy();
     return Pxx.map(Math.sqrt);
 }  // FIN function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
 // ***************************************************************************************************
+
+function welchOptimOpt1(signal, fs = 1, nperseg = 256, noverlap = null) {
+    consolelog(`entering welchOptim: fs=${fs}, nperseg=${nperseg}, noverlap=${noverlap}, signal[0..1]=${signal[0]} ${signal[1]}`, 10);
+
+    if (noverlap === null)
+        noverlap = Math.floor(nperseg / 2);
+
+    const step = nperseg - noverlap;
+    if (step <= 0)
+        throw new Error("noverlap doit être < nperseg");
+
+    const window = hanning(nperseg);
+    const U = window.reduce((acc, w) => acc + w * w, 0);
+
+    let fft;
+    try {
+        fft = new FFTW.FFT(nperseg);
+
+        const nSegments = Math.floor((signal.length - nperseg) / step) + 1;
+        consolelog(`nSegments=${nSegments}, signal.length=${signal.length}`, 10);
+        if (nSegments <= 0) return [];
+
+        const half = Math.floor(nperseg / 2);
+        const Pxx = new Float64Array(half + 1);
+
+        // Pré-allocation du segment pour éviter slice à chaque fois
+        const segment = new Float64Array(nperseg);
+
+        // Optionnel : tableau pour réutiliser la sortie FFT
+        // const spectrum = new Float64Array(nperseg * 2); // si FFTW le permet
+
+        for (let seg = 0; seg < nSegments; seg++) {
+            const start = seg * step;
+
+            // Remplir le segment réutilisable avec fenêtrage
+            for (let i = 0; i < nperseg; i++) {
+                segment[i] = signal[start + i] * window[i];
+            }
+
+            const spectrum = fft.forward(segment); // si FFTW permet de réutiliser spectrum, on pourrait éviter l'allocation ici
+
+            for (let k = 0; k <= half; k++) {
+                const re = spectrum[2*k];
+                const im = spectrum[2*k+1];
+                Pxx[k] += (re*re + im*im)/(U*fs);
+            }
+        }
+
+        for (let k = 0; k <= half; k++) {
+            Pxx[k] /= nSegments;
+        }
+
+        consolelog(`leaving welchOptim: Pxx[0]=${Pxx[0]}`, 10);
+        return Pxx.map(Math.sqrt);
+
+    } finally {
+        if (fft && typeof fft.destroy === 'function') {
+            fft.destroy();
+        }
+    }
+} // FIN function welchOptimOpt1(signal, fs = 1, nperseg = 256, noverlap = null) {
+// ********************************************************************************************************
+
+function welchOptimOpt2(signal, fs = 1, nperseg = 256, noverlap = null) {
+    consolelog(`entering welchOptim: fs=${fs}, nperseg=${nperseg}, noverlap=${noverlap}, signal[0..1]=${signal[0]} ${signal[1]}`, 10);
+
+    if (noverlap === null)
+        noverlap = Math.floor(nperseg / 2);
+
+    const step = nperseg - noverlap;
+    if (step <= 0)
+        throw new Error("noverlap doit être < nperseg");
+
+    const window = hanning(nperseg);
+    const U = window.reduce((acc, w) => acc + w * w, 0);
+
+    let fft;
+    try {
+        fft = new FFTW.FFT(nperseg);
+
+        const nSegments = Math.floor((signal.length - nperseg) / step) + 1;
+        consolelog(`nSegments=${nSegments}, signal.length=${signal.length}`, 10);
+        if (nSegments <= 0) return [];
+
+        const half = Math.floor(nperseg / 2);
+        const Pxx = new Float64Array(half + 1);
+
+        // Pré-allocation du segment pour éviter slice
+        const segment = new Float64Array(nperseg);
+
+        // Pré-allocation du spectre si FFTW le permet (taille 2*nperseg pour [re, im])
+        const spectrum = new Float64Array(nperseg * 2);
+
+        for (let seg = 0; seg < nSegments; seg++) {
+            const start = seg * step;
+
+            // Remplir le segment réutilisable avec fenêtrage
+            for (let i = 0; i < nperseg; i++) {
+                segment[i] = signal[start + i] * window[i];
+            }
+
+            // FFT in-place si possible
+            fft.forward(segment, spectrum);
+
+            for (let k = 0; k <= half; k++) {
+                const re = spectrum[2*k];
+                const im = spectrum[2*k + 1];
+                Pxx[k] += (re*re + im*im)/(U*fs);
+            }
+        }
+
+        for (let k = 0; k <= half; k++) {
+            Pxx[k] /= nSegments;
+        }
+
+        consolelog(`leaving welchOptim: Pxx[0]=${Pxx[0]}`, 10);
+        return Pxx.map(Math.sqrt);
+
+    } finally {
+        if (fft && typeof fft.destroy === 'function') {
+            fft.destroy();
+        }
+    }
+} // FIN function welchOptimOpt2(signal, fs = 1, nperseg = 256, noverlap = null) {
+// ***************************************************************************************************
+

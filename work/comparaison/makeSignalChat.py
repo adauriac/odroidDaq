@@ -3,6 +3,7 @@ import numpy as np
 # Paramètres
 fs = 1000       # fréquence d'échantillonnage (Hz)
 T = 1.0         # durée du signal en secondes
+T=1000
 N = int(fs * T) # nombre d'échantillons
 
 t = np.linspace(0, T, N, endpoint=False)

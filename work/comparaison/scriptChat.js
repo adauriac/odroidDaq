@@ -45,9 +45,12 @@ function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
 const signal = fs.readFileSync("signal.txt", "utf8")
     .trim().split(/\r?\n/).map(Number).filter(v => !isNaN(v));
 
-const fsVal = 1000;
-const nperseg = 256;
-const noverlap = 128;
+//const fsVal = 1000;
+//const nperseg = 256;
+//const noverlap = 128;
+let fsVal = signal.length
+let nperseg = fsVal
+let noverlap = fsVal/2
 
 const { f0, Pxx } = welchOptim(signal, fsVal, nperseg, noverlap);
 
