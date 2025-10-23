@@ -1,77 +1,141 @@
-
-const odroidIP = self.location.host;
 const version = '20230123';
+
+const CBOR_MIME = "application/cbor";
+let cborEncode = null;
+let cborDecode = null;
+let cborReadyPromise = null;
+
+function hasValidCbor(api) {
+    return api && typeof api.encode === "function" && typeof api.decode === "function";
+}
+
+function normalizePath(path) {
+    if (!path) return "/";
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    if (path.startsWith("/")) return path;
+    return `/${path}`;
+}
+
+function isTypedArray(value) {
+    return ArrayBuffer.isView(value) && !(value instanceof DataView);
+}
+
+function resolveCborApi(candidate) {
+    if (!candidate) {
+        return null;
+    }
+    if (hasValidCbor(candidate)) {
+        return candidate;
+    }
+    if (candidate.default && hasValidCbor(candidate.default)) {
+        return candidate.default;
+    }
+    if (candidate.CBOR && hasValidCbor(candidate.CBOR)) {
+        return candidate.CBOR;
+    }
+    if (candidate.cbor && hasValidCbor(candidate.cbor)) {
+        return candidate.cbor;
+    }
+    if (candidate.cborx && hasValidCbor(candidate.cborx)) {
+        return candidate.cborx;
+    }
+    return null;
+}
+
+async function ensureCborReady() {
+    if (cborEncode && cborDecode) {
+        return;
+    }
+    if (!cborReadyPromise) {
+        cborReadyPromise = (async () => {
+            let api = null;
+            if (typeof globalThis !== "undefined") {
+                api = resolveCborApi(globalThis.CBOR || globalThis.cbor || globalThis.cborx);
+            }
+            if (!api && typeof window !== "undefined") {
+                api = resolveCborApi(window.CBOR || window.cbor || window.cborx);
+            }
+            if (!api && typeof self !== "undefined") {
+                api = resolveCborApi(self.CBOR || self.cbor || self.cborx);
+            }
+            if (!api) {
+                throw new Error("cbor-x encode/decode API is not available");
+            }
+            cborEncode = (value) => api.encode(value);
+            cborDecode = (bytes) => api.decode(bytes);
+        })().catch((error) => {
+            cborReadyPromise = null;
+            throw error;
+        });
+    }
+    return cborReadyPromise;
+}
+
+async function cborRequest(path, options = {}) {
+    await ensureCborReady();
+    const method = options.method || "GET";
+    const url = normalizePath(path);
+    const headers = new Headers(options.headers || {});
+    if (!headers.has("Accept")) {
+        headers.set("Accept", CBOR_MIME);
+    }
+
+    let body = options.body;
+    if (body !== undefined && body !== null && !isTypedArray(body) && !(body instanceof ArrayBuffer) && !(body instanceof Blob) && !(body instanceof FormData)) {
+        body = cborEncode(body);
+        headers.set("Content-Type", CBOR_MIME);
+    }
+
+    const init = { method, headers, credentials: options.credentials, cache: options.cache, keepalive: options.keepalive, signal: options.signal };
+    if (body !== undefined) {
+        init.body = body;
+    }
+
+    const response = await fetch(url, init);
+    if (!response.ok) {
+        throw new Error(`${method} ${url} -> ${response.status}`);
+    }
+
+    const contentType = response.headers.get("Content-Type");
+    if (!contentType || !contentType.startsWith(CBOR_MIME)) {
+        if (!contentType) {
+            return null;
+        }
+        throw new Error(`${method} ${url} unexpected content-type ${contentType}`);
+    }
+
+    const buffer = await response.arrayBuffer();
+    if (!buffer.byteLength) {
+        return null;
+    }
+    return cborDecode(new Uint8Array(buffer));
+}
+
+function logRequestError(context, error) {
+    console.error(`${context} failed`, error);
+}
 
 var filesToGet=[], filesToDel=[], allFiles=[]
 var nbFilesToGet=0, nbFilesToDel=0;
 
 function setupPage(){
-    getQuery('/listDir')
+    fetchFileList();
 } // FIN function setupPage()
 // *******************************************************************************************************
 
-function getQuery( q){
-    console.log(`entering getQuery de upload.js avec q=${q}`)
-    xhttp=new XMLHttpRequest();
-    xhttp.open("GET", q ,true);
-    xhttp.onreadystatechange=function() {
-	console.log("entering xhttp.onreadystatechange de upload.js")
-      if ( xhttp.readyState === 4 && xhttp.status === 404){
-  	    return;  // Nothing to do this time.
-        }
-        if (xhttp.readyState !== 4
-	    || xhttp.status !== 200
-	    || xhttp.responseText === null
-	    || typeof xhttp.responseText === "undefined"){
-            //    console.log(xhttp.readyState , xhttp.status, xhttp.responseText);
-            return;  // Nothing to do this time.
-        }
-
-        var response={}; 
-        console.log("getQuery de upload.js headers = ", xhttp.getAllResponseHeaders());
-        console.log("getQuery de upload.js readyState=",xhttp.readyState, "status=",xhttp.status , typeof xhttp.responseText, xhttp.responseType);
-        if (xhttp.getResponseHeader('content-type') ==='application/zip'){
-            var dispo = xhttp.getResponseHeader('content-disposition')
-            //  if (dispo.indexOf('attachment') !== -1){
-            var index=0
-            if (( index =dispo.indexOf('filename=') )!== -1){
-                var filename= dispo.substr(dispo.indexOf('=')+2, dispo.length-3)
-                console.log(filename)
-                //Convert the Byte Data to BLOB object.type: ""str2bytes 'application/octet-stream'
-                var blob = new Blob([(xhttp.response)], { type: 'application/zip'});
-                var blobUrl = URL.createObjectURL(blob);
-                var link = document.createElement("a"); // Or maybe get it from the current document
-                link.href = blobUrl;
-                link.download = filename
-                document.body.appendChild(link);
-                link.click();
-                window.URL.revokeObjectURL(blobUrl);
-                document.body.removeChild(link);
+function fetchFileList() {
+    cborRequest('/listDir')
+        .then((response) => {
+            if (response && Array.isArray(response.files)) {
+                populate(response.files);
+                const zipButton = document.getElementById('zipButton');
+                if (zipButton) {
+                    zipButton.disabled = response.files.length === 0;
+                }
             }
-            return
-        }
-        try {
-            response = JSON.parse(xhttp.responseText);
-	}
-        catch (err) {
-            console.log("getQuery de upload.js Failed to parse JSON:", response, xhttp.responseText, err);
-            return;
-        }
-	respKeys =Object.keys(response)
-	console.log('getQuery de upload.js l 61 respKeys=', respKeys);
-        respValues = Object.values(response)
-	console.log('getQuery de upload.js l 63 respval=', respValues);
-	if ( respKeys[0].includes('files') ) {
-            // on reçoit la liste des fichiers dat
-            populate(JSON.parse(respValues[0]) )
-        }
-        if ( respKeys[0].includes('zip') ) {
-            // le zip est pret
-            document.getElementById('zipButton').disabled = false
-        }  
-    }
-    xhttp.send();
-}  // FIN function getQuery( q)
+        })
+        .catch((error) => logRequestError('GET /listDir', error));
+}
 // ******************************************************************************************************
 
 function unencrypt(){
@@ -85,7 +149,10 @@ function populate( fileList ){
     var tbody = document.getElementById('files');
     var trf = document.getElementById('f_0');
     var i=0
-    fileList.forEach(element => {
+    filesToGet = [];
+    filesToDel = [];
+    allFiles = [];
+    (fileList || []).forEach(element => {
         console.log(`upload.js l89 populate element=${element}`);
         // remplace les _0 par _i
         var text = trf.innerHTML.replace(/([_])0/g,  "_"+i)
@@ -117,6 +184,36 @@ function populate( fileList ){
 }  // FIN function populate( fileList ){
 // ******************************************************************************************************
 
+async function downloadFiles(files) {
+    if (!Array.isArray(files) || files.length === 0) {
+        return;
+    }
+    const query = files.map(encodeURIComponent).join(',');
+    const url = `/upload?f=${query}`;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`GET ${url} -> ${response.status}`);
+        }
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="?([^"]+)"?/i);
+        const fallbackName = files.length === 1 ? files[0] : `data_${Date.now()}.zip`;
+        const filename = match ? match[1] : fallbackName;
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        URL.revokeObjectURL(blobUrl);
+        document.body.removeChild(link);
+    } catch (error) {
+        logRequestError(`GET ${url}`, error);
+    }
+}
+// ******************************************************************************************************
+
 function delFileClicked() {
     var i=0, files = []
     //construit la liste des fichiers a supprimer
@@ -128,8 +225,11 @@ function delFileClicked() {
             i++
     }    );
     console.log(files)
+    if (files.length === 0) {
+        return;
+    }
     //supprime les fichiers choisis (colonne del)
-      postQuery('delfile', files)
+    postQuery('delfile', files)
 }  // FIN function delFileClicked() {
 // ******************************************************************************************************
 
@@ -142,39 +242,29 @@ function getFileClicked() {
             i++
     }    );  
     console.log(files, typeof files) // upload les fichiers choisis (colenne get)
-    
-  getQuery('/upload?f='+ files)
+    downloadFiles(files)
 }  // FIN function getFileClicked() {
 // ******************************************************************************************************
 
 function zipFileClicked() {
     // recup du fichier zip
-    var loc= 'http://'+odroidIP+'/tmp/out.zip';
-  window.location= loc;
+    window.location = '/tmp/out.zip';
 }  // FIN function zipFileClicked() {
 // ******************************************************************************************************
 
 function postQuery(name, value) {
-    //x-www-form-urlencode 
-    var xhr = new XMLHttpRequest(),   type = "application/json; charset=utf-8", 
-            url = "http://" + self.location.host + '/' + name;
-    xhr.open("POST", url);
-    xhr.setRequestHeader("Content-Type", type);
-    let data = new Object()
-    data.val = value;
-    
-    console.log('POST:',data);
-        
-        xhr.send(JSON.stringify(data));
-        
-        xhr.onload = () => {
-           // console.log("onload:",xhr.responseText);
-            if (name==="delfile")
-            // met a jour la page
+    const payload = (value === undefined) ? {} : { val: value };
+    return cborRequest(name, { method: 'POST', body: payload })
+        .then((data) => {
+            if (name === 'delfile') {
                 window.location.reload();
-           // else
-                console.log("xhr", xhr.responseText)
-        }
+            }
+            return data;
+        })
+        .catch((error) => {
+            logRequestError(`POST ${name}`, error);
+            return null;
+        });
 }  // FIN function postQuery(name, value) {
 // ******************************************************************************************************
 // maintient les listes de fichiers a suprimer, uploader

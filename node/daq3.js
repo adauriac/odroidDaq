@@ -1,20 +1,25 @@
 // daq3.js
 // liaison avec le module DAQ3 via la liaison serie
-const { consolelog,verboseThresholdGlobal,JC } = require('./app.js');
-const daq3Version = '20221103';
-consolelog(`# flag JC= ${JC}`)
-const serialport = require("serialport");
-var sp, SerialPort = serialport.SerialPort;
-var events = require('events');
-const {ByteLengthParser} = require('@serialport/parser-byte-length')
-const TEIs = require('./TEImodules.js');
-var serports=[];
-var moduleID=0;
-var selectedPort='';
-var signal =new Array()
-var signalLength=0, acqiDone =false
+import globals, { consolelog } from './globals.js';
+import { SerialPort } from 'serialport';
+import { EventEmitter } from 'events';
+import { ByteLengthParser } from '@serialport/parser-byte-length';
+import { performance } from 'perf_hooks';
+import { getModule } from './TEImodules.js';
 
-var eventEmitter = new events.EventEmitter();
+const daq3Version = '20221103';
+consolelog(`# flag JC= ${globals.JC}`);
+
+let sp;
+let parser;
+const serports = [];
+let moduleID = 0;
+let selectedPort = '';
+let signal = [];
+let signalLength = 0;
+let acqiDone = false;
+
+const eventEmitter = new EventEmitter();
 var acquisitionDone = function () {
     acqiDone = true
     consolelog(`acqDone ${acqiDone}`,10);
@@ -26,27 +31,27 @@ function getAcqDone(){
 }  // FIN function getAcqDone(
 /**********************************************************************/
 
-function initParser() {  
+function initParser() {
     //quand on a reçu toutes les datas souhaitées par paquets de 16k (* la taille d'un element)
     //nbBytes nbre de caracteres reçus par valeur : 16 bits -> nbBytes =4, 18 ou 20 bits -> 5
-    var nbBytes = Math.ceil(TEIs.getModule(moduleID).AdcResolution /4)
+    var nbBytes = Math.ceil(getModule(moduleID).AdcResolution /4)
     parser = sp.pipe(new ByteLengthParser({ length: 16384 * nbBytes }))
     parser.on('data', function (data) {
         const startParserFunction = performance.now(); // JC 
         consolelog(`initParser daq3.js (l 37) Received acceptable data! ${typeof signal}  ${data.length}`,10)
         // positive values reach from 0 to AdcTreshold, 
         // negatives values from AdcTreshold to AdcTreshold*2 
-        var threshold = TEIs.getModule(moduleID).AdcTreshold
-        var maxInt = TEIs.getModule(moduleID).AdcTreshold *2
+        var threshold = getModule(moduleID).AdcTreshold
+        var maxInt = getModule(moduleID).AdcTreshold *2
         if ( (moduleID===2) || (moduleID===3) )    {
             // negative full scale is 0, 
             // mid scale is 0x8000 / 32768 and pos full scale is 0xffff / 65536
-            threshold = 0; maxInt = TEIs.getModule(moduleID).AdcTreshold; 
+            threshold = 0; maxInt = getModule(moduleID).AdcTreshold; 
         }
         var min=0x3ffff, max =0
         //les données arrivent en ascii !  p.ex. : '0','1','A','B','F' pour  0x01ABF
         const start = performance.now(); // JC
-        if (JC==1) {
+        if (globals.JC === 1) {
             consolelog(`a la JC`,10)
             for (let k = 0; k < Math.trunc(data.length/5) ; k++) {// JC
                 let i = 5*k;// JC
@@ -98,9 +103,7 @@ function initParser() {
  */
 function getSerialPortList(){
     //vide la liste 
-    do {
-        elmt = serports.shift()
-    }while(elmt !== undefined )
+    serports.length = 0;
 
     return new Promise( function(resolve, reject){
         SerialPort.list().then(ports => {
@@ -127,7 +130,7 @@ function dataConvert(s, gain){
     //convertit les données temporelles reçues en Volts selon le type de carte (moduleID)
     consolelog(`dataConvert daq3.js (l 126): moduleID= ${moduleID} dataConvert gain: ${gain} ${s.length}$`,10)
 
-    var maxInt = TEIs.getModule(moduleID).AdcTreshold *2
+    var maxInt = getModule(moduleID).AdcTreshold *2
     
     switch( moduleID) { // avec le hard actuel c'est case=4
     case 1 :  //ADC = AD4003BCPZ-RL7 18-bit 2 MSps
@@ -228,7 +231,7 @@ function setup(){
     //     })
     //   })
     // })
-    var gain1 = TEIs.getModule(moduleID)["gain 1"].toString()
+    var gain1 = getModule(moduleID)["gain 1"].toString()
     setParameter('f').then( ()=> {
         setParameter('h').then( ()=> {
             setParameter('s').then( ()=> {
@@ -297,7 +300,7 @@ function dataCollect(adcSamples){
     signal = []
     consolelog('signal vidé!',10)
     sp.flush()
-    if (JC != 1) {
+    if (globals.JC !== 1) {
         //par paquets de 16ksamples
         for (var i=0; i!= adcSamples; i+=16){ 
             // trigger the adc
@@ -314,7 +317,7 @@ function dataCollect(adcSamples){
             })
         }
     } else {
-	cmd = 't' // t: actual, x: 12345 x 1M times, y: O 1  2 ... 2**20-1
+	const cmd = 't' // t: actual, x: 12345 x 1M times, y: O 1  2 ... 2**20-1
 	if (cmd !='t')
 	    consolelog("ATTENTION FAKE MEASURE !! (change cmd to 't' in daq3.js l317)")
         setParameter(cmd).then( ()=>{
@@ -335,7 +338,7 @@ function dataCollect(adcSamples){
  * @param {number} gain  : gain courant
  * @returns : données converties (Float64Array)
  */
-function getCollectedData(gain) {
+function getSignalData(gain) {
     consolelog(`getCollectedData daq3.js (l334) : entering gain=${gain}`,10)
     var signalVolts = new Float64Array(signal.length)
     dataConvert(signalVolts, gain)
@@ -348,20 +351,45 @@ function getCollectedData(gain) {
  * modules et variables exportées
  * alias : nom fonction
  */
-module.exports = { // pour communication avec app.js
-    serialPorts : serports,
-    moduleID :  moduleID,
-    signal : signal,
-    getAcqDone : getAcqDone ,
-    signalLength : signalLength,
-    getSerialPortList : getSerialPortList,
-    closeSerial : closeSerial,
-    initSerial : initSerial,
-    initParser : initParser,
-    setup : setup,
-    setParameter : setParameter,
-    dataCollect : dataCollect,
-    getSignalData : getCollectedData
-}
+const daq3Api = {
+    get serialPorts() {
+        return serports;
+    },
+    get moduleID() {
+        return moduleID;
+    },
+    get signal() {
+        return signal;
+    },
+    get signalLength() {
+        return signalLength;
+    },
+    getAcqDone,
+    getSerialPortList,
+    closeSerial,
+    initSerial,
+    initParser,
+    setup,
+    setParameter,
+    dataCollect,
+    getSignalData,
+};
 
+export {
+    serports as serialPorts,
+    moduleID,
+    signal,
+    signalLength,
+    getAcqDone,
+    getSerialPortList,
+    closeSerial,
+    initSerial,
+    initParser,
+    setup,
+    setParameter,
+    dataCollect,
+    getSignalData,
+    daq3Version,
+};
 
+export default daq3Api;
