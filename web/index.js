@@ -3,8 +3,128 @@ console.log("JC debut")
 var gainValues=[0,1];
 // valeur du slider 'samples' pour chaque position
 const samplesValues =[16,32,64,128,256,512,1024];
-const odroidIP = self.location.host;
 const version = '20230509';
+
+const CBOR_MIME = "application/cbor";
+let cborEncode = null;
+let cborDecode = null;
+let cborReadyPromise = null;
+
+function hasValidCbor(api) {
+    return api && typeof api.encode === "function" && typeof api.decode === "function";
+}
+
+function normalizePath(path) {
+    if (!path) return "/";
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    if (path.startsWith("/")) return path;
+    return `/${path}`;
+}
+
+function isTypedArray(value) {
+    return ArrayBuffer.isView(value) && !(value instanceof DataView);
+}
+
+function ensureTypedArray(value, ctor = Float64Array) {
+    if (value == null) return new ctor(0);
+    if (value instanceof ctor) return value;
+    if (isTypedArray(value)) return ctor.from(value);
+    if (Array.isArray(value)) return ctor.from(value);
+    if (typeof value === "object" && typeof value.length === "number") return ctor.from(value);
+    return new ctor(0);
+}
+
+function resolveCborApi(candidate) {
+    if (!candidate) {
+        return null;
+    }
+    if (hasValidCbor(candidate)) {
+        return candidate;
+    }
+    if (candidate.default && hasValidCbor(candidate.default)) {
+        return candidate.default;
+    }
+    if (candidate.CBOR && hasValidCbor(candidate.CBOR)) {
+        return candidate.CBOR;
+    }
+    if (candidate.cbor && hasValidCbor(candidate.cbor)) {
+        return candidate.cbor;
+    }
+    if (candidate.cborx && hasValidCbor(candidate.cborx)) {
+        return candidate.cborx;
+    }
+    return null;
+}
+
+async function ensureCborReady() {
+    if (cborEncode && cborDecode) {
+        return;
+    }
+    if (!cborReadyPromise) {
+        cborReadyPromise = (async () => {
+            let api = null;
+            if (typeof globalThis !== "undefined") {
+                api = resolveCborApi(globalThis.CBOR || globalThis.cbor || globalThis.cborx);
+            }
+            if (!api && typeof window !== "undefined") {
+                api = resolveCborApi(window.CBOR || window.cbor || window.cborx);
+            }
+            if (!api && typeof self !== "undefined") {
+                api = resolveCborApi(self.CBOR || self.cbor || self.cborx);
+            }
+            if (!api) {
+                throw new Error("cbor-x encode/decode API is not available");
+            }
+            cborEncode = (value) => api.encode(value);
+            cborDecode = (bytes) => api.decode(bytes);
+        })().catch((error) => {
+            cborReadyPromise = null;
+            throw error;
+        });
+    }
+    return cborReadyPromise;
+}
+
+async function cborRequest(path, options = {}) {
+    await ensureCborReady();
+    const method = options.method || "GET";
+    const url = normalizePath(path);
+    const headers = new Headers(options.headers || {});
+    if (!headers.has("Accept")) {
+        headers.set("Accept", CBOR_MIME);
+    }
+
+    let body = options.body;
+    if (body !== undefined && body !== null && !isTypedArray(body) && !(body instanceof ArrayBuffer) && !(body instanceof Blob) && !(body instanceof FormData)) {
+        body = cborEncode(body);
+        headers.set("Content-Type", CBOR_MIME);
+    }
+
+    const init = { method, headers, credentials: options.credentials, cache: options.cache, keepalive: options.keepalive, signal: options.signal };
+    if (body !== undefined) {
+        init.body = body;
+    }
+
+    const response = await fetch(url, init);
+    if (!response.ok) {
+        throw new Error(`${method} ${url} -> ${response.status}`);
+    }
+
+    const contentType = response.headers.get("Content-Type");
+    if (!contentType || !contentType.startsWith(CBOR_MIME)) {
+        return null;
+    }
+
+    const buffer = await response.arrayBuffer();
+    if (!buffer.byteLength) {
+        return null;
+    }
+    return cborDecode(new Uint8Array(buffer));
+}
+
+function logRequestError(context, error) {
+    console.error(`${context} failed`, error);
+}
 
 const WAVE = 1
 const FFT = 2
@@ -305,7 +425,11 @@ function selectComPort(val)
     console.log('selectComPort', value[0]);
     // initialise
     // var res = initPort(val); 
-    postQuery('initSerial', value[0]);
+    postQuery('initSerial', value[0]).then((moduleInfo) => {
+        if (moduleInfo) {
+            initPage(moduleInfo);
+        }
+    });
 
     /// document.getElementById('acq').enable=true
 }  // FINfunction selectComPort(val)
@@ -521,132 +645,123 @@ function help()
  * @brief envoie une requete GET
  * @param  q  : la requete
  */
-function getQuery( q)
+function getQuery(q)
 {
-    console.log("JC calling getQuery with ",q)
-    xhttp=new XMLHttpRequest();
-
-    xhttp.open("GET", q ,true);
-    xhttp.onreadystatechange=function() {
-        //   console.log("xhttpresp=",xhttp.responseText);        
-        if (xhttp.readyState === 4 && xhttp.status === 404){
-  	      return;  // Nothing to do this time.
-        }
-        if (xhttp.readyState !== 4
-	    || xhttp.status !== 200
-	    || xhttp.responseText === null
-	    || typeof xhttp.responseText === "undefined"){
-
-            //    console.log(xhttp.readyState , xhttp.status, xhttp.responseText);
-            return;  // Nothing to do this time.
-        }
-        var response={};
-        try {
-        	response = JSON.parse(xhttp.responseText);
-	  }
-        catch (err) {
-            console.log("Failed to parse JSON:", response, xhttp.responseText, err);
-            return;
-        }
-        console.log("resp=",response, typeof response);
-        
-        respKeys =Object.keys(response)
-        console.log('respKeys', respKeys);
-        respValues = Object.values(response)
-        console.log('respval', respValues);
-        if ( respKeys[0] =='serial') {
-            if ( Array.isArray(respValues[0]) ){
-                // remplit la listBox comPorts 
-                console.log("serial");
-                console.log("JC ",respValues[0]);
-                respValues[0].forEach(addDeviceToList);   
-                var comPorts = document.getElementById('comPorts');
-                //vire le 'placeholder'
-                comPorts.remove(comPorts.selectedIndex); 
-            }
-            else {
-                
-            }
-        }
-        else if (respKeys.includes('JCFFT')) {
-	    console.log("server a repondu a getJCFFT")
-	    JCFFT=1
-	}
-        else if (respKeys[0] =='data') {
-            // respValues[0] = object
-            //données a plotter        
-            console.log(' datas :',respValues[0].length)
-            plotData(Object.values(respValues[0])) 
-            console.log('data plot end')
-            if ( mode_status===1) //mode sequences
-                nextSequence()    
-            // 
-            else //retour au curseur normal
-                document.getElementsByTagName('body')[0].style.cursor = 'default' ; 
-            // startTimeInterval()
-        }        
-        else if (respKeys[0].includes('fft')) {
-            // respValues[0] = object
-            addComment('fft done :' + respValues[0].length +'pts')
-            //fft a plotter
-            console.log(' fft :',respValues.length, 'fft change :', respValues[2])
-            /// x: (f en Hz), y : (P en nV/sqrt(Hz) )Object.values
-            if (respValues[2] === undefined) respValues[2]=0
-            plotFFT(Object.values(respValues[0]), Object.values(respValues[1]), (respValues[2]), Object.values(respValues[3]), Object.values(respValues[4]))
-            if ( mode_status===1) //mode sequences
-                nextSequence()  
-            else {
-                //retour au curseur normal
-                document.getElementsByTagName('body')[0].style.cursor = 'default' ; 
-                startTimeInterval()
-                startCpuTempInterval()
-            }
-        }
-        else if (respKeys[0].includes('fname')) {
-            // data ou fft sauvées
-            addComment(respValues[0]+ ' saved')
-            if ( mode_status===1) //mode sequences
-                nextSequence()  
-        }
-        else if (respKeys[0].includes('time')) {
-            //timestamp odroid
-            document.getElementById('time').innerHTML = respValues[0]
-        }
-        else if (respKeys[0].includes('cpuTemp')) {
-            //temperature cpu odroid
-            var item = document.getElementById('cpuTemp')
-            temp = respValues[0]
-            if (temp < 70) //vert
-                item.setAttribute('style', 'color :green')
-            else if (temp  < 90) //orange
-                item.setAttribute('style', 'color :orange')
-            else //rouge
-                item.setAttribute('style', 'color :red')
-            item.innerHTML = temp
-        }
-        else if (respKeys[0].includes('acqDone')) {
-            if ( respValues[0] === true){ 
-                console.log("acqDone");
-                //arrete d'interroger l'odroid
-                clearInterval(acqDoneInterval )
-                acqDoneInterval =0
-                if (seq_status === 1){
-                    //mode sequence
-                    nextSequence()
-                } else {  //mode standard
-                    enableButtons(true)
-                    //retour au curseur normal
-                    document.getElementsByTagName('body')[0].style.cursor = 'default' ; 
-                    startTimeInterval()
-                    startCpuTempInterval()
-                    addComment('acq done' )
-                }
-            }   
-        } // fin if ( respKeys[0].includes('acqDone')
-    } // FIN fonction argument de xhttp.onreadystatechange=
-    xhttp.send();
+    const url = normalizePath(q);
+    console.log("JC calling getQuery with ", url);
+    cborRequest(url)
+        .then((response) => {
+            processCborResponse(response);
+        })
+        .catch((error) => logRequestError(`GET ${url}`, error));
 }  // FIN getQuery( q)
 /********************************************************************************************/
+
+function processCborResponse(response) {
+    if (!response || typeof response !== 'object') {
+        return;
+    }
+
+    if (Array.isArray(response.serial)) {
+        console.log("serial", response.serial);
+        response.serial.forEach(addDeviceToList);
+        const comPorts = document.getElementById('comPorts');
+        if (comPorts && comPorts.options.length && comPorts.options[0].value === "") {
+            comPorts.remove(0);
+        }
+        return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(response, 'JCFFT')) {
+        console.log("server a repondu a getJCFFT");
+        JCFFT = 1;
+        return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(response, 'data')) {
+        const dataSeries = ensureTypedArray(response.data, Float64Array);
+        console.log(' datas :', dataSeries.length);
+        plotData(dataSeries);
+        console.log('data plot end');
+        if (mode_status === 1) {
+            nextSequence();
+        } else {
+            document.getElementsByTagName('body')[0].style.cursor = 'default';
+        }
+        return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(response, 'fft_x1') || Object.prototype.hasOwnProperty.call(response, 'fft_y1')) {
+        const fftX1 = ensureTypedArray(response.fft_x1, Float64Array);
+        const fftY1 = ensureTypedArray(response.fft_y1, Float64Array);
+        const fftChange = typeof response.f0 === 'number' ? response.f0 : 0;
+        const fftX2 = ensureTypedArray(response.fft_x2, Float64Array);
+        const fftY2 = ensureTypedArray(response.fft_y2, Float64Array);
+        addComment('fft done :' + fftY1.length + 'pts');
+        console.log(' fft :', fftY1.length, 'fft change :', fftChange);
+        plotFFT(fftX1, fftY1, fftChange, fftX2, fftY2);
+        if (mode_status === 1) {
+            nextSequence();
+        } else {
+            document.getElementsByTagName('body')[0].style.cursor = 'default';
+            startTimeInterval();
+            startCpuTempInterval();
+        }
+        return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(response, 'fname')) {
+        addComment(response.fname + ' saved');
+        if (mode_status === 1) {
+            nextSequence();
+        }
+        return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(response, 'time')) {
+        document.getElementById('time').innerHTML = response.time;
+        return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(response, 'cpuTemp')) {
+        const item = document.getElementById('cpuTemp');
+        const temp = response.cpuTemp;
+        if (!item) {
+            return;
+        }
+        if (temp < 70) {
+            item.setAttribute('style', 'color :green');
+        } else if (temp < 90) {
+            item.setAttribute('style', 'color :orange');
+        } else {
+            item.setAttribute('style', 'color :red');
+        }
+        item.innerHTML = temp;
+        return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(response, 'acqDone')) {
+        if (response.acqDone === true) {
+            console.log("acqDone");
+            clearInterval(acqDoneInterval);
+            acqDoneInterval = 0;
+            if (seq_status === 1) {
+                nextSequence();
+            } else {
+                enableButtons(true);
+                document.getElementsByTagName('body')[0].style.cursor = 'default';
+                startTimeInterval();
+                startCpuTempInterval();
+                addComment('acq done');
+            }
+        }
+        return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(response, 'error')) {
+        console.error('Server error:', response.error);
+    }
+}
 
 /**
  * remplit la listBox comPorts avec les comports disponibles sur l'odroid
@@ -674,20 +789,13 @@ function addDeviceToList(data){
  * @param {*} value 
  */
 function postQuery(name, value)
-{//x-www-form-urlencode 
-    var xhr = new XMLHttpRequest(),   type = "application/json; charset=utf-8", 
-        url = "http://" + odroidIP + '/' + name;
-    xhr.open("POST", url);
-    xhr.setRequestHeader("Content-Type", type);
-    let data = new Object()
-    data.val = value;
-    console.log('POST:',data);
-    xhr.send(JSON.stringify(data));
-    xhr.onload = () => {
-        console.log("postQuery: index.js (l=663) onload:",xhr.responseText);
-        if (name==="initSerial")
-            initPage(JSON.parse(xhr.responseText))
-    }
+{
+    const payload = (value === undefined) ? {} : { val: value };
+    return cborRequest(name, { method: "POST", body: payload, keepalive: true })
+        .catch((error) => {
+            logRequestError(`POST ${name}`, error);
+            return null;
+        });
 }  // FIN function postQuery(name, value)
 /*************************************************************************************************************/
 
@@ -1042,46 +1150,3 @@ function startCpuTempInterval(){
         }, 8000000 );// J'AI MIS 8000000  A LA PLACE DE 80000 POUR NE PAS POLLUER LA SORTIE
 }  // FIN function startCpuTempInterval(){    
 /********************************************************************************************/
-
-async function setRadioValueBIDON(radio) {
-    console.log("Affichage set to:", radio.value);
-    
-    //  Envoyer au serveur
-    try {
-    const response = await fetch('/update-mode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: value })
-    });
-
-    const result = await response.json();
-    console.log("Réponse du serveur :", result);
-  } catch (err) {
-      console.error("Erreur lors de l'envoi au serveur :", err);
-      }
-    
-} // FIN function setRadioValue(radio) {
-/********************************************************************************************/
-
-async function setRadioValue(radio) {
-    // Ici on récupère la valeur du radio bouton cliqué
-    const value = radio.value;
-
-    console.log("Nouvel état :", value);
-
-    try {
-	const response = await fetch('/update-mode', {
-	    method: 'POST',
-	    headers: { 'Content-Type': 'application/json' },
-	    body: JSON.stringify({ mode: value }) // <- utilisez 'value' défini juste au-dessus
-	});
-
-	const result = await response.json();
-	console.log("Réponse du serveur :", result);
-    } catch (err) {
-	console.error("Erreur lors de l'envoi au serveur :", err);
-    }
-} // FIN function setRadioValue(radio) {
-/********************************************************************************************/
-
-

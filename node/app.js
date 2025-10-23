@@ -1,617 +1,713 @@
+import fs from "fs";
+import path from "path";
+import express from "express";
+import JSZip from "jszip";
+import { spawn, exec } from "child_process";
+import { Gpio } from "onoff";
+import fftw from "fftw-js";
+import { fileURLToPath, pathToFileURL } from "url";
+import { encode as cborEncode, decode as cborDecode } from "cbor-x";
+
+import globals, { consolelog } from "./globals.js";
+import fileStore from "./files.js";
+import TEIs from "./TEImodules.js";
+import daq3 from "./daq3.js";
+
+const FFT = fftw?.FFT ?? fftw?.default?.FFT;
+if (typeof FFT !== "function") {
+  throw new Error("FFT constructor not found in fftw-js module");
+}
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const PORT = 3000;
-const serverVersion = '20230509';
+const serverVersion = "20230509";
 // version adaptée à l'ampli diff_JFE2140
 // gain 5/50, gpio led
-let JCFFT = 1 // to use either the pld python version or the new js version (JCFFT->new javascript)
-let JC = 1
-// const verboseThresholdGlobal = Number.MAX_SAFE_INTEGER // never printed 
-const verboseThresholdGlobal = 11 // 0->always printed, Number.MAX_SAFE_INTEGER->never printed  printed if verbose>=verboseThresholdGlobal
-// plus verboseThresholdGlobal est BAS plus on affiche
-let args = process.argv
-if (args.indexOf('NOJC')!=-1)
-    JC = 0
-if (args.indexOf("NOJCFFT")!=-1)
-    JCFFT = 0
+let JCFFT = 1; // to use either the pld python version or the new js version (JCFFT->new javascript)
 
-module.exports = { verboseThresholdGlobal,consolelog,JC }
+const args = process.argv;
+if (args.indexOf("NOJC") !== -1) {
+  globals.JC = 0;
+}
+if (args.indexOf("NOJCFFT") !== -1) {
+  JCFFT = 0;
+}
 
-// pour la comm avec daq3
-const daq3 = require('./daq3.js');
-// pour le management des fichiers de données
-const dataFiles = require('./files.js');
-// pour la manipulation des gpios de l'odroid
-const gpio = require("onoff").Gpio
-// pour la manipulation de fichiers statiques
-const path = require('path')
-var fs = require('fs');
-//les pages web sont dans le dossier 'web'
-var express = require('express');
-const FFTW = require("fftw-js"); // retourne un objet  su par console.log(typeof FFTW);
-const { parseArgs } = require('util');
-const { setgroups } = require('process');
-const app = express()
-bodyparse = require('body-parser');
-//definit le dossier des fichier statiques
-app.use('/', express.static( 'odroidDaq/web'))
-// for parsing application/json
-app.use(bodyparse.json()) 
+const app = express();
+const CBOR_MIME_TYPE = "application/cbor";
+const jsonParser = express.json({ limit: "5mb" });
+const cborRawParser = express.raw({ type: CBOR_MIME_TYPE, limit: "10mb" });
 
-var jszip = require('jszip');
-const FileSaver = require('file-saver');
-// pour lancer un script pyhton (fft welch) et scripts bash
-const {spawn}= require('child_process');
-const {exec}= require('child_process');
+const encodeToBuffer = (payload) => {
+  const encoded = cborEncode(payload);
+  return Buffer.isBuffer(encoded) ? encoded : Buffer.from(encoded);
+};
 
-var mode = 'complet'
-var TEImodule =0
+const sendCbor = (res, payload, status = 200) => {
+  if (typeof status === "number" && res.statusCode !== status) {
+    res.status(status);
+  }
+  res.set("Content-Type", CBOR_MIME_TYPE);
+  return res.send(encodeToBuffer(payload));
+};
+
+const asFloat64Array = (value) => {
+  if (value == null) {
+    return new Float64Array(0);
+  }
+  if (value instanceof Float64Array) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return Float64Array.from(value);
+  }
+  if (ArrayBuffer.isView(value)) {
+    return Float64Array.from(value);
+  }
+  return new Float64Array(0);
+};
+
+app.use((req, res, next) => {
+  if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
+    if (req.is(CBOR_MIME_TYPE)) {
+      return cborRawParser(req, res, (err) => {
+        if (err) {
+          err.status = err.status || 400;
+          return next(err);
+        }
+        if (!req.body || !req.body.length) {
+          req.body = {};
+          return next();
+        }
+        try {
+          req.body = cborDecode(req.body);
+        } catch (parseError) {
+          parseError.status = 400;
+          parseError.message = "Invalid CBOR payload";
+          return next(parseError);
+        }
+        return next();
+      });
+    }
+    return jsonParser(req, res, next);
+  }
+  return next();
+});
+
+const staticDir = path.join(__dirname, "..", "web");
+const dataDirectory = path.join(__dirname, "..", "data");
+app.use("/", express.static(staticDir));
+
+let mode = "complet";
+let TEImodule = 0;
 //const teis = require('./TEImodule.js');
 // liste des commandes de gain a envoyer au module daq3
-var gainValues = [0,1]
-
-const TEIs = require('./TEImodules.js');
-const files = require('./files.js');
+const gainValues = [0, 1];
 
 //pin numbers physical
 // gpios odroid utilisées { nom, numero de pin, valeur de depart, instance(new) }
-const odroidGPIOS = [ {name:'ACDC', pin:30, start:0, gpio: null}, {name:'X10', pin:22, start:0, gpio: null}, 
-                      {name:'J1', pin:21,start:0, gpio: null}, {name:'J2', pin:18 ,start:0, gpio: null},
-                      {name:'LED', pin:31 ,start:0, gpio: null}, {name:'FILTER', pin:29 ,start:0, gpio: null}]
-var LedStatus = 0;
-var gpios ={}
+const odroidGPIOS = [
+  { name: "ACDC", pin: 30, start: 0, gpio: null },
+  { name: "X10", pin: 22, start: 0, gpio: null },
+  { name: "J1", pin: 21, start: 0, gpio: null },
+  { name: "J2", pin: 18, start: 0, gpio: null },
+  { name: "LED", pin: 31, start: 0, gpio: null },
+  { name: "FILTER", pin: 29, start: 0, gpio: null },
+];
+let ledStatus = 0;
+
 //parametres d'acquisition
 // gain programmable DAQ3, gain exterieur, gain preampli :5/50
-var acq_gain =1,  acq_extgain =1, acq_gainX10=5, acq_samples=16
-var acq_highZ=false, acq_spanComp=false, acq_sqWave=false
-var fft_X_1= new Float64Array(), fft_Y_1= new Float64Array()
-var fft_X_N= new Float64Array(), fft_Y_N= new Float64Array()
+let acq_gain = 1;
+let acq_extgain = 1;
+let acq_gainX10 = 5;
+let acq_samples = 16;
+let acq_highZ = false;
+let acq_spanComp = false;
+let acq_sqWave = false;
+let fft_X_1 = new Float64Array(0);
+let fft_Y_1 = new Float64Array(0);
+let fft_X_N = new Float64Array(0);
+let fft_Y_N = new Float64Array(0);
 /* ********************************************************************* */
 /*                      POUR TESTER WELCH                                */
 /* ********************************************************************* */
 
-consolelog(`# flag JCFFT=${JCFFT}`)
-
-// every 10s  show the memory usage
-setInterval(() => {
-  const m = process.memoryUsage();
-  console.log(`Rss used: ${(m.rss / 1024 / 1024).toFixed(2)} MB`);
-}, 10000);
+consolelog(`# flag JCFFT=${JCFFT}`);
 
 // intervalle de cligotement de la led status
-var blinkLEDinterval =setInterval(blinkLEDstatus, 500);
+let blinkLEDinterval = setInterval(blinkLEDstatus, 500);
 /**************************************************************************/
 
 /**
  * fait clignoter la led de status
  */
-function blinkLEDstatus() { 
-    if ( LedStatus===0) LedStatus= 1
-    else LedStatus=0
-    odroidGPIOS[4].gpio.writeSync( LedStatus );
+function blinkLEDstatus() {
+  ledStatus = ledStatus === 0 ? 1 : 0;
+  odroidGPIOS[4].gpio.writeSync(ledStatus);
 }
 
-function setLEDstatus( s ) { 
-    clearInterval(blinkLEDinterval)
-    odroidGPIOS[4].gpio.writeSync( s );
+function setLEDstatus(s) {
+  clearInterval(blinkLEDinterval);
+  odroidGPIOS[4].gpio.writeSync(s);
 }
 /******************************** GPIOs ***************************************/
 
 /**
  * init des gpios
  * */
-odroidGPIOS.forEach( function( n) {
-    // consolelog(`GPIO: ${n} ${n.name} ${n.pin)`,10)
-    var mygpio = new gpio(n.pin, 'out')
-    //  consolelog(`${typeof mygpio}, ${mygpio}`,10)
-    n.gpio= mygpio
+odroidGPIOS.forEach((n) => {
+  const gpioInstance = new Gpio(n.pin, "out");
+  n.gpio = gpioInstance;
 });
 
 /**************************serveur web ***********************************************/
 
-// demarrage du serveur web 'express'
-app.listen(PORT, (error) =>{
-    if(!error) 
-        consolelog(`# Server ${serverVersion} is Successfully Running, and App is listening on port ${PORT}`); 
-    else 
-        consolelog(`Error occurred, server can't start error= ${error}`);
-});
+function startServer() {
+  app.listen(PORT, (error) => {
+    if (!error) {
+      consolelog(
+        `# Server ${serverVersion} is Successfully Running, and App is listening on port ${PORT}`,
+      );
+    } else {
+      consolelog(`Error occurred, server can't start error= ${error}`);
+    }
+  });
+}
 
 /******************************** requetes GET ***************************************/
 
-//// sert la page par defaut odroidDaqweb/index.html
-app.get('/', (req, res)=>{  
-    consolelog(`/${req}`,10)  
-    res.sendFile('/index.html');
+// sert la page par defaut odroidDaqweb/index.html
+app.get("/", (req, res) => {
+  consolelog(req.originalUrl || req.url, 10);
+  res.sendFile(path.join(staticDir, "index.html"));
 });
 
-//// sert les pages index.*
-app.get('/index/', (req, res)=>{   
-    res.sendFile('/index/');
+// sert les pages index.*
+app.get("/index/", (req, res) => {
+  res.sendFile(path.join(staticDir, "index", "index.html"));
 });
 
-//// reponse à la requete 'listserial'
-app.get('/listSerial/', (req, res)=>{   
-    odroidGPIOS.forEach( function( n) {
-        // valeur initiale sur les gpios
-        consolelog(`reinit : ${n.name} ${n.start}`,10)
-        n.gpio.writeSync(n.start)
-    })
-    consolelog('listSerial',10)
-    daq3.getSerialPortList().then (
-        (list)=> {
-            //renvoie la liste des ports serie
-            res.json({'serial' :list});
-        } )
+// reponse à la requete 'listserial'
+app.get("/listSerial/", (req, res) => {
+  odroidGPIOS.forEach((gpioConfig) => {
+    consolelog(`reinit : ${gpioConfig.name} ${gpioConfig.start}`, 10);
+    gpioConfig.gpio.writeSync(gpioConfig.start);
+  });
+  consolelog("listSerial", 10);
+  daq3
+    .getSerialPortList()
+    .then((list) => sendCbor(res, { serial: list }))
+    .catch((error) => {
+      consolelog(error);
+      sendCbor(res, { error: "Serial list unavailable" }, 500);
+    });
 });
 
-//// reponse à la requete 'aquire'
-app.get('/acquire/', (req, res)=>{   
-    clearInterval(blinkLEDinterval);
-    setLEDstatus(1)
-    // lance l'acqui ur le daq3
-    daq3.dataCollect(acq_samples) // acq_samples est une variable global
-    res.send({ 'acq': 'started'});
+// reponse à la requete 'acquire'
+app.get("/acquire/", (req, res) => {
+  clearInterval(blinkLEDinterval);
+  setLEDstatus(1);
+  daq3.dataCollect(acq_samples);
+  sendCbor(res, { acq: "started" });
 });
 
-//// reponse à la requete 'save'
-app.get('/save/', (req, res)=>{   
-    var name= req.query['f']
-    var directoryPath = path.join(__dirname, '..', 'data/');
-    var fname = directoryPath+name +"_sig_" +Date.now() + '.dat'
-    consolelog(`app.js l 161 fname=${fname}`,10)
-    // sauvegarde des données temporelles acquises
-    var gain = acq_gain
-    if (acq_spanComp)
-        gain = acq_gain / 0.8  
-    // on tient compte du gain externe, et du gain preampli
-    gain = gain *  acq_gainX10
-    var data= daq3.getSignalData(gain)   
-    ///acq_samplingrate
-    var x, periode = 1000 * 1 / TEIs.getModule(TEImodule).AdcSamplingRate   
-    /* Stringify the array before saving */
-    // fichier texte 2 colonnes x, y
-    var dataStr='', size = data.length
-    for (let i=0; i!=size; i++ ){
-        x = (i++)*periode
-        dataStr += x.toString() + ' ' + data[i].toString() + '\n'
+// reponse à la requete 'save'
+app.get("/save/", (req, res) => {
+  const name = req.query.f;
+  if (!name) {
+    sendCbor(res, { error: "Missing filename" }, 400);
+    return;
+  }
+  const filename = path.join(dataDirectory, `${name}_sig_${Date.now()}.dat`);
+  consolelog(`app.js save -> ${filename}`, 10);
+
+  let gain = acq_gain;
+  if (acq_spanComp) {
+    gain = acq_gain / 0.8;
+  }
+  gain *= acq_gainX10;
+
+  const data = daq3.getSignalData(gain);
+  const period = (1000 * 1) / TEIs.getModule(TEImodule).AdcSamplingRate;
+
+  const rows = [];
+  for (let i = 0; i < data.length; i += 1) {
+    const x = i * period;
+    rows.push(`${x} ${data[i]}`);
+  }
+
+  fs.writeFile(filename, `${rows.join("\n")}\n`, (err) => {
+    if (err) {
+      consolelog(err);
+      sendCbor(res, { error: "Save failed" }, 500);
+      return;
     }
-    consolelog(`app.get(/save app.js (l 173) dataStr= ${dataStr}`,10)
-    fs.writeFile(fname, dataStr, function (err) {
-        if (err) throw err;
-        consolelog(`Saved in ${fname}`,10);
-    })
-    res.send({'fname' :fname});
+    consolelog(`Saved in ${filename}`, 10);
+    sendCbor(res, { fname: filename });
+  });
 });
 
-//// reponse à la requete 'savefft'
-app.get('/savefft/', (req, res)=>{   
-    var name= req.query['f'], dateNow = Date.now()
-    // sauvegarde de la fft calculée
-    // fichier texte 2 colonnes X, Y
-    var fftStr='', size = fft_X_1.length
-    for (let i=0; i!=size; i++ ){
-        fftStr += fft_X_1[i].toString() + ' ' + fft_Y_1[i].toString() + '\n'
+// reponse à la requete 'savefft'
+app.get("/savefft/", (req, res) => {
+  const name = req.query.f;
+  if (!name) {
+    sendCbor(res, { error: "Missing filename" }, 400);
+    return;
+  }
+  const dateNow = Date.now();
+  const firstFftFile = path.join(dataDirectory, `${name}_fft_1_${dateNow}.dat`);
+
+  const serializeFft = (x, y) => {
+    const rows = [];
+    for (let i = 0; i < x.length; i += 1) {
+      rows.push(`${x[i]} ${y[i]}`);
     }
-    var directoryPath = path.join(__dirname, '..', 'data/');
-    var fname = directoryPath+name +"_fft_1_" + dateNow + '.dat'
-    consolelog(`app.js l 197 saving first fft in fname=${fname}`,10)
-    try{
-        fs.writeFileSync(fname, fftStr );
-	consolelog(`${fname} Saved!`,10);
-    }catch (err) {       
-        consolelog(err)  
+    return `${rows.join("\n")}\n`;
+  };
+
+  try {
+    fs.writeFileSync(firstFftFile, serializeFft(fft_X_1, fft_Y_1));
+    consolelog(`${firstFftFile} Saved!`, 10);
+  } catch (err) {
+    consolelog(err);
+    sendCbor(res, { error: "FFT save failed" }, 500);
+    return;
+  }
+
+  let responseFilename = firstFftFile;
+  if (fft_X_N.length) {
+    const secondFftFile = path.join(
+      dataDirectory,
+      `${name}_fft_N_${dateNow}.dat`,
+    );
+    consolelog(`Saving secondary FFT ${secondFftFile}`, 10);
+    try {
+      fs.writeFileSync(secondFftFile, serializeFft(fft_X_N, fft_Y_N));
+      consolelog(`${secondFftFile} Saved!`, 10);
+      responseFilename = secondFftFile;
+    } catch (err) {
+      consolelog(err);
+      sendCbor(res, { error: "Secondary FFT save failed" }, 500);
+      return;
     }
-    // si on a fait une fft avec seg>1 on a 2 ffts
-    if (fft_X_N.length ){
-	consolelog(`app.js l206 une autre fft car fft_X_N.length=${fft_X_N.length} fft_Y_N.length=${fft_Y_N.length}`,10)
-        fftStr='', size = fft_X_N.length
-        for (let i=0; i!=size; i++ ){
- 	    //consolelog(`app.js l210 i=${i} fft_X_N[i].toString()=${fft_X_N[i].toString()} fft_Y_N[i].toString()=${fft_Y_N[i].toString()}`,10)
-            fftStr += fft_X_N[i].toString() + ' ' + fft_Y_N[i].toString() + '\n'
-        }
-	fname = directoryPath+name +"_fft_N_" +dateNow + '.dat'
-	consolelog(`app.js l 212 saving second fft in fname=${fname}`,10)
-        try {
-            fs.writeFileSync(fname, fftStr );
-	    consolelog(`${fname} Saved!`,10);
-        }
-        catch (err){
-            consolelog(err)  
-        }
-    }
-    res.send({'fname' :fname});
+  }
+  sendCbor(res, { fname: responseFilename });
 });
 
-//// reponse à la requete 'data'
+// reponse à la requete 'data'
 // recup de données temporelles dans le daq3
-app.get('/data/', (req, res)=>{
-    consolelog(`app.js l228 /data/ mode=${mode}`)
-    var gain = acq_gain
-    if (acq_spanComp)
-        gain = acq_gain / 0.8  
-    // on tient compte du gain externe
-    gain = gain * acq_gainX10
-    res.send({ 'data' :daq3.getSignalData(gain)});
+app.get("/data/", (req, res) => {
+  consolelog(`/data/ mode=${mode}`, 10);
+  let gain = acq_gain;
+  if (acq_spanComp) {
+    gain = acq_gain / 0.8;
+  }
+  gain *= acq_gainX10;
+  sendCbor(res, { data: daq3.getSignalData(gain) });
 });
 
-//// reponse à la requete 'time'
-app.get('/time/', (req, res)=>{   
-    var timestamp = Date.now()
-    var theTime = new Date(timestamp)
-    // renvoie la date courante de l'odroid  
-    consolelog(`app.get time= ${theTime}`,10);
-    res.send({'time' :theTime.toJSON()});
+// reponse à la requete 'time'
+app.get("/time/", (req, res) => {
+  const timestamp = Date.now();
+  const theTime = new Date(timestamp);
+  consolelog(`app.get time= ${theTime}`, 10);
+  sendCbor(res, { time: theTime.toJSON() });
 });
 
-//// reponse à la requete 'cpuTemp'
-app.get('/cpuTemp/', (req, res)=>{   
-    // lit la temperature moyenne du CPU   temp = 
-    computeCPUTemp()
-        .then((temp) => { 
-            consolelog(`app.get cpuTemp ${temp}`,10);
-            res.send({'cpuTemp' : temp });
-        })
-        .catch((e) => {
-            consolelog(e);
-        });
+// reponse à la requete 'cpuTemp'
+app.get("/cpuTemp/", (req, res) => {
+  computeCPUTemp()
+    .then((temp) => {
+      consolelog(`app.get cpuTemp ${temp}`, 10);
+      sendCbor(res, { cpuTemp: temp });
+    })
+    .catch((error) => {
+      consolelog(error);
+      sendCbor(res, { error: "CPU temperature unavailable" }, 500);
+    });
 });
 
-//// reponse à la requete 'done?'
-app.get('/done?/', (req, res)=>{    
-    var stat=  daq3.getAcqDone()
-    consolelog(`acqDone ${stat}`,10)
-    if (stat === false)
-        blinkLEDstatus()
-    else
-        blinkLEDinterval = setInterval(blinkLEDstatus, 500)
-    //renvoie un flag disant si l'acquisition de données est terminée
-    res.send({'acqDone' : stat });
+// reponse à la requete 'done?'
+app.get("/done?/", (req, res) => {
+  const stat = daq3.getAcqDone();
+  consolelog(`acqDone ${stat}`, 10);
+  if (stat === false) {
+    blinkLEDstatus();
+  } else {
+    blinkLEDinterval = setInterval(blinkLEDstatus, 500);
+  }
+  sendCbor(res, { acqDone: stat });
 });
 
-//// reponse à la requete 'fft?'
+// reponse à la requete 'fft?'
 // lance un calcul de fft sur les données acquises
-app.get('/fft/', (req, res)=>{   
-    // lance le calcul de la fft (progamme python : welch() )
-    var gain = acq_gain
-    if (acq_spanComp)
-        gain = acq_gain / 0.8  
-    // on tient compte du gain externe, et du gain preampli
-    gain = gain * acq_extgain * acq_gainX10
-    var data= daq3.getSignalData(gain)
-    var seg = Number(req.query['seg'])
-    consolelog(`app.js l280 seg=${seg}`,10)
-    setLEDstatus(1)
-    if (JCFFT) { // JC VERSION OF WELCH
-	let freqMin = TEIs.getModule(TEImodule).AdcSamplingRate*1.0/(data.length)
-	consolelog(`app.js l285 mode=${mode}`,20)
-	consolelog(`app.get(/fft/) (l 267) javascript welch in progress seg=${seg}`,10); 
-	const fs = TEIs.getModule(TEImodule).AdcSamplingRate;
-	let result =0
-	let nbperseg = acq_samples*1024;// acq_samples = variable globale affectee par samples);
-	result = welchOptim(data,fs,nbperseg) 
-	let dataToSend = '{"fft_x1":' + generateFft_x(data.length,freqMin)
-	dataToSend += ','
-	dataToSend += '"fft_y1":' + jsonize(result)+',\n'
-	result = null
-	if (seg==1) {
-	    dataToSend += '"f0": 0,\n'
-	    dataToSend += '"fft_x2": 0,\n'
-	    dataToSend += '"fft_y2": 0.0}'
-	} else {
-	    freqMin *=  seg;
-	    consolelog(`app.get(/fft/) (l 299) f0=${freqMin} seg=${seg}`,10) 
-	    dataToSend += `"f0": ${freqMin},\n` 
-	    dataToSend += '"fft_x2": '+generateFft_x(Math.trunc(nbperseg/seg),freqMin)
-	    dataToSend += ','
-	    result = welchOptim(data,fs,Math.trunc(nbperseg/seg))
-	    consolelog(`app.get(/fft/) (l 304) after secund call to welchOptim ${Math.trunc(nbperseg/seg)} result.length=${result.length}`,10) 
-	    dataToSend += '"fft_y2":' + jsonize(result) + '}'
-	}	    
-	// writeAndExit(`dataToSend=${dataToSend}`)
-	const ndts=dataToSend.length
-        var mydata = JSON.parse(dataToSend)
-        var dataKeys = [] 
-        for (const key in mydata) 
-	    dataKeys.push(key)
-        fft_X_1=mydata[dataKeys[0]]
-        fft_Y_1=mydata[dataKeys[1]]
-        if (mydata[dataKeys[3]].length != undefined){
-	    fft_X_N=mydata[dataKeys[3]]
-	    fft_Y_N=mydata[dataKeys[4]]     
-        }
-        res.send(dataToSend)
-        blinkLEDinterval = setInterval(blinkLEDstatus, 500);
-    } else {
-	// nom prog python suivi des arguments : -f (freq ech.), -s (samples), -m : moyennage(segmentation) '-d'
-	var pythonCmd = ['./odroidDaq/node/python/fft3.py', '-f ', '-s ', '-m']
-	pythonCmd[1] = '-f ' + TEIs.getModule(TEImodule).AdcSamplingRate
-	pythonCmd[2] = '-s ' + acq_samples // variable globale affectee par samples
-	pythonCmd[3] = '-m ' + seg
-	//   pythonCmd[4] = '-d 0 ' 
-	var dataToSend ="";
-	// spawn new child process to call the python script
-	const python = spawn('python3', pythonCmd )
-	// collect data from script
-	consolelog (`# app.get(/fft/) app.js (l 306) : pythonCmd=${pythonCmd}`,10)
-	python.stdout.on('data', function (data) {
-            // recupere 2 tableaux {f, Pxx_den}
-            consolelog(`app.get(/fft/) app.js (l 267) : Pipe data from python script ... data.length= ${data.length}`,10);
-            dataToSend += data.toString();
-	});
-	python.stderr.on('data', function (data) {
-            consolelog(`app.get(/fft/ app.js (l 307) stderr data.toString()= ${data.toString()}`,10);
-	});
-	python.on('close', (code) => {
-	    // in close event we are sure that stream from child process is closed
-            consolelog(`child process close all stdio with code ${code}`,10);
-            // dataTosend -> fft_X et fft_Y pour eventuelle sauvegardesupprime les fichiers
-	    consolelog(`app.get(/fft/) app.js (l 321) dataToSend=${dataToSend} `,10)
-            var data = JSON.parse(dataToSend)
-            var dataKeys = [] 
-            for (const key in data) {
-		dataKeys.push(key)
-            } 
-            fft_X_1=data[dataKeys[0]]
-            fft_Y_1=data[dataKeys[1]]
-            if (data[dataKeys[3]].length != undefined){
-		fft_X_N=data[dataKeys[3]]
-		fft_Y_N=data[dataKeys[4]]     
-            } else {
-		fft_X_N.length=0;
-		fft_Y_N.length=0
-            }
-            res.send(dataToSend)
-            blinkLEDinterval = setInterval(blinkLEDstatus, 500);
-	});
-	consolelog('app.get(/fft/) app.js (l 341) write data in python script...',10)    
-	consolelog (`app.get(/fft/) app.js (l 342) JSON.stringify(data)= ${JSON.stringify(data)}`,10) 
-	/* Stringify the array before send to py_process */
-	python.stdin.write(JSON.stringify(data) )
-	consolelog(`app.get(/fft (l 343) welch en python data(0,1,2,3, ..., last)= ${data[0]},${data[1]},${data[2]},${data[3]},... ,${data[data.length-1]} len=${data.length}`,10)
-	/* Close the stream */
-	python.stdin.end();
-    } // fin else de if (JCFFT)
-});  // fin app.get('/fft/', (req, res)=>{   
+app.get("/fft/", (req, res) => {
+  let gain = acq_gain;
+  if (acq_spanComp) {
+    gain = acq_gain / 0.8;
+  }
+  gain *= acq_extgain * acq_gainX10;
 
-//// reponse à la requete 'listdir?'
-app.get("/listDir/", (req, res)=> {
-    // renvoie la liste des fichiersdu dossier 'data
-    consolelog("entering app.get(/listDir/ app.js l 379",10)
-    dataFiles.list() .then(
-        (files) => {
-	    consolelog(`app.get(/listDir app.js l 382 files=${files}`,10)
-            res.send({'files': JSON.stringify(files) } )
-        });
+  const signal = daq3.getSignalData(gain);
+  const seg = Math.max(1, Number.parseInt(req.query.seg, 10) || 1);
+  consolelog(`fft seg=${seg}`, 10);
+  setLEDstatus(1);
+
+  const applyWelchCache = (payload) => {
+    if (!payload) {
+      return;
+    }
+    if (payload.fft_x1) {
+      fft_X_1 = asFloat64Array(payload.fft_x1);
+    }
+    if (payload.fft_y1) {
+      fft_Y_1 = asFloat64Array(payload.fft_y1);
+    }
+    fft_X_N = asFloat64Array(payload.fft_x2);
+    fft_Y_N = asFloat64Array(payload.fft_y2);
+  };
+
+  if (JCFFT) {
+    try {
+      const samplingRate = TEIs.getModule(TEImodule).AdcSamplingRate;
+      const nbperseg = acq_samples * 1024;
+      const baseFreq = samplingRate / signal.length;
+
+      const primarySpectrum = welchOptim(signal, samplingRate, nbperseg);
+      const response = {
+        fft_x1: generateFftAxis(signal.length, baseFreq),
+        fft_y1: primarySpectrum,
+        f0: 0,
+        fft_x2: new Float64Array(0),
+        fft_y2: new Float64Array(0),
+      };
+
+      if (seg !== 1) {
+        const adjustedNperseg = Math.max(1, Math.trunc(nbperseg / seg));
+        const secondarySpectrum = welchOptim(
+          signal,
+          samplingRate,
+          adjustedNperseg,
+        );
+        const secondaryFreq = baseFreq * seg;
+        response.f0 = secondaryFreq;
+        response.fft_x2 = generateFftAxis(adjustedNperseg, secondaryFreq);
+        response.fft_y2 = secondarySpectrum;
+      }
+
+      applyWelchCache(response);
+      sendCbor(res, response);
+    } catch (error) {
+      consolelog(error);
+      sendCbor(res, { error: "FFT processing failed" }, 500);
+    } finally {
+      blinkLEDinterval = setInterval(blinkLEDstatus, 500);
+    }
+    return;
+  }
+
+  const pythonCmd = ["./odroidDaq/node/python/fft3.py", "-f ", "-s ", "-m"];
+  pythonCmd[1] = `-f ${TEIs.getModule(TEImodule).AdcSamplingRate}`;
+  pythonCmd[2] = `-s ${acq_samples}`;
+  pythonCmd[3] = `-m ${seg}`;
+
+  let pyOutput = "";
+  const python = spawn("python3", pythonCmd);
+  consolelog(`# fft -> pythonCmd=${pythonCmd}`, 10);
+
+  python.stdout.on("data", (chunk) => {
+    consolelog(`fft python stdout length=${chunk.length}`, 10);
+    pyOutput += chunk.toString();
+  });
+
+  python.stderr.on("data", (chunk) => {
+    consolelog(`fft python stderr=${chunk.toString()}`, 10);
+  });
+
+  python.on("close", (code) => {
+    consolelog(`fft python process closed with code ${code}`, 10);
+    try {
+      const payload = JSON.parse(pyOutput);
+      const response = {
+        fft_x1: asFloat64Array(payload.fft_x1),
+        fft_y1: asFloat64Array(payload.fft_y1),
+        f0: payload.f0 ?? 0,
+        fft_x2: asFloat64Array(payload.fft_x2),
+        fft_y2: asFloat64Array(payload.fft_y2),
+      };
+      applyWelchCache(response);
+      sendCbor(res, response);
+    } catch (error) {
+      consolelog(error);
+      sendCbor(res, { error: "FFT parsing failed" }, 500);
+    } finally {
+      blinkLEDinterval = setInterval(blinkLEDstatus, 500);
+    }
+  });
+
+  consolelog("fft -> sending signal to python", 10);
+  python.stdin.write(JSON.stringify(signal));
+  consolelog(`fft -> signal length=${signal.length}`, 10);
+  python.stdin.end();
 });
 
-//// reponse à la requete 'upload?'
-//route to download a file
-app.get('/upload/',(req, res) => {
-    var directoryPath = path.join(__dirname, '..', 'data');
-    consolelog(`app.js l381 directoryPath=${directoryPath}`,10)
-    var file = req.query['f'];
-    var files = file.split(',')
-    if (files.length === 1) {
-        // un seul fichier a envoyer
-        var fileLocation = path.join(directoryPath,file);
-        consolelog(fileLocation,10);
-        res.download(fileLocation, file, 
-                     function(err) {
-                         if(err) {
-                             consolelog(err);
-                         }
-                     } )
+// reponse à la requete 'listdir?'
+app.get("/listDir/", async (req, res) => {
+  consolelog("entering /listDir", 10);
+  try {
+    const files = await fileStore.list();
+    consolelog(`/listDir ${files}`, 10);
+    sendCbor(res, { files });
+  } catch (error) {
+    consolelog(error);
+    sendCbor(res, { error: "Listing failed" }, 500);
+  }
+});
+
+// reponse à la requete 'upload?'
+// route to download a file
+app.get("/upload/", async (req, res) => {
+  const fileParam = req.query.f;
+  if (!fileParam) {
+    sendCbor(res, { error: "Missing filename" }, 400);
+    return;
+  }
+
+  const requestedFiles = fileParam
+    .split(",")
+    .map((f) => f.trim())
+    .filter((f) => f.length);
+
+  if (requestedFiles.length === 0) {
+    sendCbor(res, { error: "No valid filenames provided" }, 400);
+    return;
+  }
+
+  if (requestedFiles.length === 1) {
+    const fileName = requestedFiles[0];
+    const fileLocation = path.join(dataDirectory, fileName);
+    consolelog(`Download single file ${fileLocation}`, 10);
+    res.download(fileLocation, fileName, (err) => {
+      if (err) {
+        consolelog(err);
+        if (!res.headersSent) {
+          sendCbor(res, { error: "File not found" }, 404);
+        }
+      }
+    });
+    return;
+  }
+
+  const zip = new JSZip();
+  try {
+    requestedFiles.forEach((fileName) => {
+      const filePath = path.join(dataDirectory, fileName);
+      const content = fs.readFileSync(filePath);
+      zip.file(fileName, content);
+    });
+
+    const archive = await zip.generateAsync({ type: "nodebuffer" });
+    const zipName = `data_${Date.now()}.zip`;
+    consolelog(`zip -> ${zipName}`, 10);
+    res.set({
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="${zipName}"`,
+    });
+    res.send(archive);
+  } catch (error) {
+    consolelog(error);
+    if (!res.headersSent) {
+      sendCbor(res, { error: "Zip generation failed" }, 500);
     }
-    else {
-        // plusieurs fichiers -> zip
-        var zip = new jszip();
-        files.forEach(f => {
-            zip.file(f, fs.readFileSync(path.join(directoryPath,f)));
-        });
-        
-        //crée le fichier zip
-        zip.generateAsync({type:"base64"}).then(function (content) { // 1) generate the zip file
-            FileSaver.saveAs(content, 'out.zip')  
-            consolelog('zip-> out.zip',10)
-            res.send({'zip':'out.zip'})
-        });
-    }
+  }
 });
 /************************************* requetes POST *********************************/
 
-app.post('/update-mode', (req, res) => {
-    consolelog('app.js l 419 /update-mode called',10)
-    const { mode: newMode } = req.body;
-    if (newMode === 'complet' || newMode === 'optimize') {
-	mode = newMode;
-	consolelog(`Mode mis à jour : ${mode}`,10);
-	res.json({ success: true, mode });
-    } else {
-	res.status(400).json({ success: false, message: 'Valeur invalide' });
-    }
-    consolelog(`app.js l 428 mode=${mode}`,10)
+app.post("/update-mode", (req, res) => {
+  consolelog("/update-mode called", 10);
+  const { mode: newMode } = req.body;
+  if (newMode === "complet") {
+    mode = newMode;
+    consolelog(`Mode mis à jour : ${mode}`, 10);
+    sendCbor(res, { success: true, mode });
+  } else {
+    sendCbor(res, { success: false, message: "Valeur invalide" }, 400);
+  }
+  consolelog(`mode=${mode}`, 10);
 });
 
-app.post('/', function (req, res) {
-    consolelog(`* ${req.body}`,10);
-    res.end();
-})
+app.post("/", (req, res) => {
+  consolelog(`* ${req.body}`, 10);
+  res.end();
+});
 
-//// reponse à la requete 'initSerial?'
-app.post('/initSerial', function (req, res) {
-    consolelog(`initSerial ${req.body.val}`,10);
-    // initialisation de la liaison serie vers le daq3
-    daq3.initSerial(req.body.val).then(
-        (id) => {
-            consolelog(`id ${id}`,10)
-            //renvoie l'id du daq3
-            TEImodule= id
-            consolelog(TEIs.getModule(id),10)
-            res.send(TEIs.getModule(id));
-            fillGainCommand(TEIs.getModule(id))
-            // place le daq3 dans une config connue
-            consolelog(`${daq3.setup()}`,10);
-            daq3.initParser()
-        }
-    )
-    
-})
+// reponse à la requete 'initSerial?'
+app.post("/initSerial", async (req, res) => {
+  consolelog(`initSerial ${req.body.val}`, 10);
+  try {
+    const id = await daq3.initSerial(req.body.val);
+    consolelog(`id ${id}`, 10);
+    TEImodule = id;
+    const moduleInfo = TEIs.getModule(id);
+    consolelog(moduleInfo, 10);
+    sendCbor(res, moduleInfo);
+    fillGainCommand(moduleInfo);
+    consolelog(`${daq3.setup()}`, 10);
+    daq3.initParser();
+  } catch (error) {
+    consolelog(error);
+    sendCbor(res, { error: "Serial init failed" }, 500);
+  }
+});
 
-//// reponse à la requete 'closeSerial?'
-app.post('/closeSerial', function (req, res) {
-    // arret du port serie
-    consolelog('closeSerial',10);
-    daq3.closeSerial()
-    res.end();
-})
+// reponse à la requete 'closeSerial?'
+app.post("/closeSerial", (req, res) => {
+  consolelog("closeSerial", 10);
+  daq3.closeSerial();
+  res.end();
+});
 
-//// reponse à la requete 'dateSet'
-app.post('/dateset', function (req, res) {
-    // mise a jour de la date systeme de l'odroid, à partir de celle du pc 
-    dateTime    = new Date(req.body.val) //Convert string or number to date
-    let day     = dateTime.getDate() 
-    let month   = dateTime.getUTCMonth() + 1 
-    let year    = dateTime.getFullYear() 
-    let hour = dateTime.getHours()
-    let min= dateTime.getMinutes() 
-    let updateD = `${year}-${month}-${day} ${hour}:${min}` //Format the string correctly
-    
-    consolelog(`setdate ${req.body.val} ${updateD}`,10);
-    // lancement du script bash 'setDate.sh'
-    exec(`/usr/local/bin/setDate.sh "${updateD}"`, (err, stdout, stderr) => {
-        if (err || stderr) {
-            console.error('err', err);
-            consolelog(`log ${stderr}`);
-        } else {
-            consolelog("Successfully set the system's datetime",10);
-        }
-    })
-    res.end();
-})
+// reponse à la requete 'dateSet'
+app.post("/dateset", (req, res) => {
+  const dateTime = new Date(req.body.val);
+  const day = dateTime.getDate();
+  const month = dateTime.getUTCMonth() + 1;
+  const year = dateTime.getFullYear();
+  const hour = dateTime.getHours();
+  const min = dateTime.getMinutes();
+  const updateD = `${year}-${month}-${day} ${hour}:${min}`;
 
-//// reponse à la requete 'gain'
+  consolelog(`setdate ${req.body.val} ${updateD}`, 10);
+  exec(`/usr/local/bin/setDate.sh "${updateD}"`, (err, stdout, stderr) => {
+    if (err || stderr) {
+      console.error("err", err);
+      consolelog(`log ${stderr}`);
+    } else {
+      consolelog("Successfully set the system's datetime", 10);
+    }
+  });
+  res.end();
+});
+
+// reponse à la requete 'gain'
 // changement de la valeur du gain dans le daq3
-app.post('/gain', function (req, res) {
-    // gain programmable DAQ3
-    // affiche la commande -> la valeur du gain
-    acq_gain = gainValues[req.body.val -1]
-    consolelog(`gain ${req.body.val} -> ${acq_gain}`,10);
-    //envoie la commande au daq3
-    daq3.setParameter(req.body.val.toString()).then( ()=>{ return acq_gain })
-    res.end();
-}) 
+app.post("/gain", (req, res) => {
+  acq_gain = gainValues[req.body.val - 1];
+  consolelog(`gain ${req.body.val} -> ${acq_gain}`, 10);
+  daq3.setParameter(req.body.val.toString()).then(() => acq_gain);
+  res.end();
+});
 
-//// reponse à la requete 'extgain'
+// reponse à la requete 'extgain'
 // changement de la valeur du gain externe
-app.post('/extgain', function (req, res) {
-    // gain externe
-    // affiche la commande -> la valeur du gain
-    acq_extgain = req.body.val 
-    consolelog(`extgain=' ${req.body.val} -> gain= ${acq_extgain} * ${acq_gain}`,10);
-    //envoie la commande au daq3
-    // daq3.setParameter(req.body.val.toString()).then( ()=>{ return acq_gain })
-    res.end();
-})     
+app.post("/extgain", (req, res) => {
+  acq_extgain = req.body.val;
+  consolelog(
+    `extgain ${req.body.val} -> gain= ${acq_extgain} * ${acq_gain}`,
+    10,
+  );
+  res.end();
+});
 
-app.post('/', function (req, res) {
-    consolelog(`* ${req.body}`,10);
-    res.end();
-})
+// reponse à la requete 'set'
+// changement de la valeur d'une variable du daq3
+app.post("/set", (req, res) => {
+  consolelog(`set ${req.body.val}`, 10);
+  const [key, valueRaw] = req.body.val.split("=");
+  const value = Number(valueRaw);
+  let cmd = "";
 
-//// reponse à la requete 'set'
-// changement de la valeur d'une variable du daq3'
-app.post('/set', function (req, res) {
-    consolelog(`set ${req.body.val}`,10);
-    var value = Number( req.body.val.substring( req.body.val.indexOf('=') +1 ))
-    if (req.body.val.search('highZ')!==-1){
-        cmd = 'h'; acq_highZ = (value === 1)
-    }
-    else if(req.body.val.search('spanComp')!==-1){
-        cmd = 's'; acq_spanComp = (value === 1)
-    }
-    else if(req.body.val.search('SQwave')!==-1){
-        cmd = 'f'; acq_sqWave = (value === 1)
-    }   
-    // si value =1 commande uppercase, lowercase sinon
-    if (value ==1)
-        cmd = cmd.toUpperCase()
-    
-    consolelog(`set ${cmd}`,10)
-    //envoie la commande au daq3
-    daq3.setParameter(cmd).then( ()=>{ return 'done' ; })
+  if (key.includes("highZ")) {
+    cmd = "h";
+    acq_highZ = value === 1;
+  } else if (key.includes("spanComp")) {
+    cmd = "s";
+    acq_spanComp = value === 1;
+  } else if (key.includes("SQwave")) {
+    cmd = "f";
+    acq_sqWave = value === 1;
+  }
 
-    res.end();
-}) 
+  if (!cmd) {
+    sendCbor(res, { error: "Commande inconnue" }, 400);
+    return;
+  }
 
-//// reponse à la requete 'gpio'
+  if (value === 1) {
+    cmd = cmd.toUpperCase();
+  }
+
+  consolelog(`set ${cmd}`, 10);
+  daq3.setParameter(cmd).then(() => "done");
+  res.end();
+});
+
+// reponse à la requete 'gpio'
 // change l'etat d'une gpio de l'odroid
-app.post('/gpio', function (req, res) {
-    consolelog(`gpio ${req.body.val}`,10);
-    // req.body.val de la forme 'ACDC=1'
-    var name = req.body.val.substring(0, req.body.val.indexOf('=') )
-    var value = Number( req.body.val.substring( req.body.val.indexOf('=') +1 ))
-    // inversion pour J1 et J2
-    if (name.indexOf('J')!==-1)
-        if (value ===0) value= 1
-    else value=0
+app.post("/gpio", (req, res) => {
+  consolelog(`gpio ${req.body.val}`, 10);
+  const [name, valueRaw] = req.body.val.split("=");
+  let value = Number(valueRaw);
 
-    if (name.indexOf('X')!==-1)
-        // gain preampli X10
-        if (value ===1) acq_gainX10 = 50
-    else  acq_gainX10 = 5 
+  if (name.includes("J")) {
+    value = value === 0 ? 1 : 0;
+  }
 
-    consolelog(`${name} ${value}`,10)
-    var theGpio  = odroidGPIOS.find( element => element.name === name )
-    if (theGpio===undefined)
-        res.end()
+  if (name.includes("X")) {
+    acq_gainX10 = value === 1 ? 50 : 5;
+  }
 
-    consolelog(`set gpio ${theGpio.name} ${theGpio.pin}  ${value}`,10)
-    // changement
-    theGpio.gpio.writeSync( value )
+  consolelog(`${name} ${value}`, 10);
+  const theGpio = odroidGPIOS.find((element) => element.name === name);
+  if (!theGpio) {
+    sendCbor(res, { error: "GPIO not found" }, 404);
+    return;
+  }
 
-    res.end();
-}) 
+  consolelog(`set gpio ${theGpio.name} ${theGpio.pin} ${value}`, 10);
+  theGpio.gpio.writeSync(value);
+  res.end();
+});
 
-//// reponse à la requete 'samples'
-app.post('/samples', function (req, res) {
-    // modif du nombre d'echantillons à prendre
-    // utilisés lors de l'acquisition
-    acq_samples= req.body.val
-    res.end();
-})  
+// reponse à la requete 'samples'
+app.post("/samples", (req, res) => {
+  acq_samples = Number(req.body.val);
+  res.end();
+});
 
-//// reponse à la requete 'delfile'
-app.post('/delfile', function (req, res) {
-    consolelog(`del ${req.body}`,10);      
-    res.send({'deleted' :  files.delete(req.body.val) });
-})
+// reponse à la requete 'delfile'
+app.post("/delfile", (req, res) => {
+  consolelog(`del ${req.body}`, 10);
+  sendCbor(res, { deleted: fileStore.delete(req.body.val) });
+});
 
-//// reponse à la requete 'quit'
-app.post('/quit', function (req, res) {
-    consolelog(`quit ${req.body}`,10);
-    quit()
-    res.end();
-})
+// reponse à la requete 'quit'
+app.post("/quit", (req, res) => {
+  consolelog(`quit ${req.body}`, 10);
+  quit();
+  res.end();
+});
 
 /**************************************************************************/
 /**
  * rempli les tableau de gain et commandes (pour obtenir cs gains sur le daq3)
  * @param {*} data : valeurs fonction du type de module (pour nous daq3)
  */
-function fillGainCommand(data){
-    // remplit la liste des commandes de gain        gain : gain,
-
-    var key, keys = Object.keys(data)
-    consolelog(`keys ${keys}`,10)
-    //vide gainCmd
-    while (gainValues.length)
-        gainValues.pop()
-    //le remplit
-    for (var i=0; i!= keys.length; i++){
-        if ((keys[i].search(/^gain\s\d/)!== -1)){///|| (keys[i].search(/^gain\s\d\.\d{1,2}$/)!== -1)
-            gainValues.push( (keys[i].substring( keys[i].indexOf(' ') +1))); 
-        }
+function fillGainCommand(data) {
+  const keys = Object.keys(data);
+  consolelog(`keys ${keys}`, 10);
+  while (gainValues.length) {
+    gainValues.pop();
+  }
+  for (const key of keys) {
+    if (key.search(/^gain\s\d/) !== -1) {
+      gainValues.push(key.substring(key.indexOf(" ") + 1));
     }
-    consolelog( `gainValues: ${gainValues}`,10);
+  }
+  consolelog(`gainValues: ${gainValues}`, 10);
 } // FIN function fillGainCommand(data){
 /**************************************************************************/
 
@@ -619,32 +715,28 @@ function fillGainCommand(data){
  * async function computeCPUTemp()
  * @brief   calcule une temperature moyenne du CPU en lisant les valeurs de temp des 5 zones
  *  dans /sys/devices/virtual/thermal/thermal_zoneX
- * 
+ *
  * @returns la temperature moyenne
  */
 async function computeCPUTemp() {
-    var cpuTemp=0, cmd="";
-    let cpuTempCmd ="cat /sys/devices/virtual/thermal/thermal_zone";
-    let error= false;
-    // 5 zones definies, on en fait la moyenne
-    for (var i=0; i!=5 && error===false; i++){
-        cmd = cpuTempCmd + i.toString() + "/temp";
-        await getCpuTemp(cmd)
-            .then((temp) => {
-                cpuTemp += temp;
-            })
-            .catch((err) => {
-                error =true;
-            });
-    }//end for
-    if (error === true)
-        return(-1);
-    else {
-        //moyenne
-        cpuTemp = cpuTemp / 5 ;
-        // /1000 pour l'avoir en degréC
-        return( cpuTemp/ 1000) ;
-    }
+  let cpuTemp = 0;
+  const cpuTempCmd = "cat /sys/devices/virtual/thermal/thermal_zone";
+  let error = false;
+  for (let i = 0; i !== 5 && error === false; i += 1) {
+    const cmd = `${cpuTempCmd}${i}/temp`;
+    await getCpuTemp(cmd)
+      .then((temp) => {
+        cpuTemp += temp;
+      })
+      .catch((err) => {
+        error = true;
+      });
+  }
+  if (error === true) {
+    return -1;
+  }
+  cpuTemp /= 5;
+  return cpuTemp / 1000;
 } // FIN async function computeCPUTemp()
 
 /**
@@ -653,316 +745,137 @@ async function computeCPUTemp() {
  * @param {} cmd : commande 'cat ..' à executer
  * @returns promise
  */
-function getCpuTemp( cmd){
-    return new Promise(( resolve, reject) => {
-        var temp=0, error =false, ended =false;
-        const script= exec(cmd);
-        script.stdout.on('data', function(data){
-            //temperature en 1/1000 de degrés
-            temp =parseInt(data)
-        })
-        // what to do with data coming from the standard error
-        script.stderr.on('data', function(data){
-            error= true;
-        });
-        script.on('exit', function (code) {
-            ended =true;
-            if (code != 0) 
-                error= true;
-            
-            if (error === true)
-                reject(error);
-            else {
-                resolve( temp) ;
-            }
-        });
-    }  );
-
+function getCpuTemp(cmd) {
+  return new Promise((resolve, reject) => {
+    let temp = 0;
+    let error = false;
+    const script = exec(cmd);
+    script.stdout.on("data", (data) => {
+      temp = parseInt(data, 10);
+    });
+    script.stderr.on("data", () => {
+      error = true;
+    });
+    script.on("exit", (code) => {
+      if (code !== 0) {
+        error = true;
+      }
+      if (error === true) {
+        reject(error);
+      } else {
+        resolve(temp);
+      }
+    });
+  });
 }
 /**************************************************************************/
 
-function quit() { 
-/**
- * pour quitter, et arretere proprement l'odroid
- */
-    consolelog( 'function quit',10);
-    // lancement du script bash
-    spawn ("/bin/sh", ['-c', `/usr/local/bin/shutDown.sh`]);
-} // FIN function quit() { 
+function quit() {
+  /**
+   * pour quitter, et arretere proprement l'odroid
+   */
+  consolelog("function quit", 10);
+  // lancement du script bash
+  spawn("/bin/sh", ["-c", `/usr/local/bin/shutDown.sh`]);
+} // FIN function quit() {
 /* *********************************************************************************** */
 
-function generatedataToSend(N=8192) {
-    function generateRepeatedNumberString() {
-	const number = "1.234e-7";
-	return '"fft_y1": ['+Array(N+1).fill(number).join(",")+']';
-    }
-    function generateScaledNumbersString() {
-	const factor = 122.0703125;
-	const numbers = [];
-	for (let n = 0; n <= N; n++) {
-            numbers.push(factor * n);
-	}
-	return '"fft_x1": ['+ numbers.join(",") +']';
-    }
-    return  '{' + generateScaledNumbersString() + ',' +  generateRepeatedNumberString() + ',"f0": 0,"fft_x2": 0,"fft_y2": 0.0}'
-} // FIN function generatedataToSend(N=8192) {
-/* *********************************************************************************** */
-
-function segmentise(n,k) {
-    // there are 2**n points, and each segments has 2**(n-k) points
-    // the consecutive segments overlap by half of their length
-    // return the list of the endpoints of the segments,
-    // the first point is included while the last is excluded
-    N = 2**n
-    nps = 2**(n-k)
-    npsHalf = 2**(n-k-1)
-    nbs = 2**(k+1)-1
-    cur = 0
-    let res = [];
-    for (let i=0;i<nbs;i++) {
-	res.push([cur,cur+nps])
-	cur = cur + npsHalf
-    }
-    return res;
-} // FIN function segmentise(n,k) {
-// *************************************************************************
-
-function testAndQuit(npts,w,T) {
-    // cree un signal de freq w (w alternance/seconde) echantillonne npts fois a une frequence de 1/T
-    // donc les tps de mesures sont 0, T,2*T, ... ,(npts-1)*T ou le signal vaut sin(0), sin(w*T),sin(2*w*T), ...
-    // il y alors |w*(npts-1)*T| alternance plus la partie non entiere 
-    let S = new Float64Array(npts);  // contiendra le signal
-    for(let i=0;i<npts;i++) {
-	let ti = i*T
-	S[i] = Math.sin(w*ti)
-    }
-    for(let i=0;i<npts;i++) 
-	consolelog(`${i} ${i*T} ${S[i]}`,10)
-    consolelog("\n\n",10)
-    const rezu = welchise(S,1)
-    for(let i=0;i<npts/2+1;i++) 
-	consolelog(`${i}  ${i/T} ${rezu[i]}`,10)
-    process.exit();
-} // function testAndQuit(npts,w,T) {
-// *************************************************************************
-
-function jsonize(T) {
-    return '[' + T.join(",") + '] '
-} // FIN function jsonize(T) {
-// *************************************************************************
-
-function writeAndExit(message, code = 0) {
-    // utile pour le debbogage
-    const ok = process.stdout.write(message + '\n');
-    if (ok) {
-        process.exit(code);
-    } else {
-        // attendre que le flux soit vidé
-        process.stdout.once('drain', () => {
-            process.exit(code);
-        });
-    }
-} // FIN function writeAndExit(message, code = 0) {
-// *************************************************************************
-
-function consolelog(message,verbose=Number.MAX_SAFE_INTEGER-1) {
-    // without argument -> ALWAYS printed
-    // to ensure NO printing use verboseThresholdGlobal=Number.MAX_SAFE_INTEGER
-    if (verbose >= verboseThresholdGlobal)
-	console.log(message)
-}  // FIN function consolelog(message,verbose=0) {
-// *************************************************************************
-
-function generateFft_x(dataLength,freqMin) {
-    // generate a json string representing the array of frequencies
-    // key is the name (usually fft_x1 or fft_x2)
-    // dataLength is the length of the data and
-    // freqMin is the minimal non zero frequency
-    let dataToSend = "["
-    for(let i=0;i<=dataLength/2;i++)
-	dataToSend += i*freqMin+',';
-    dataToSend = dataToSend.slice(0, -1) + "]"; // last "," becomes "]"
-    return dataToSend
-}  // FIN function generateFft_x(key,dataLength,freqMin) {
-// *************************************************************************
+function generateFftAxis(dataLength, freqMin) {
+  const upperBound = Math.floor(dataLength / 2);
+  const axis = new Float64Array(upperBound + 1);
+  for (let i = 0; i <= upperBound; i += 1) {
+    axis[i] = i * freqMin;
+  }
+  return axis;
+}
 
 function hanning(M) {
-    return Array.from({ length: M }, (_, n) => 0.5 - 0.5 * Math.cos((2 * Math.PI * n) / (M - 1)));
-}  // FIN function hanning(M) {
-// **********************************************************************************************************
+  return Array.from(
+    { length: M },
+    (_, n) => 0.5 - 0.5 * Math.cos((2 * Math.PI * n) / (M - 1)),
+  );
+}
 
-// --- Welch optimisé ---
 function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
-    consolelog(`app.js l853 entering welchOptim with  fs=${fs} nperseg=${nperseg} noverlap=${noverlap} signal(0:1)=${signal[0]} ${signal[1]} `,10); 
-    if (noverlap === null)
-	noverlap = Math.floor(nperseg / 2);
-    const step = nperseg - noverlap;
-    if (step <= 0)
-	throw new Error("noverlap doit être < nperseg");
+  consolelog(
+    `welchOptim fs=${fs} nperseg=${nperseg} noverlap=${noverlap} signal(0:1)=${signal[0]} ${signal[1]}`,
+    10,
+  );
+  const resolvedOverlap =
+    noverlap === null ? Math.floor(nperseg / 2) : noverlap;
+  const step = nperseg - resolvedOverlap;
+  if (step <= 0) {
+    throw new Error("noverlap doit être < nperseg");
+  }
 
-    const window = hanning(nperseg);
-    const U = window.reduce((acc, w) => acc + w*w, 0);
+  const window = hanning(nperseg);
+  const U = window.reduce((acc, w) => acc + w * w, 0);
 
-    consolelog(`app.js 806 in welchOptim avant const fft =  new ... nperseg=${nperseg}`,20)
-    const fft = new FFTW.FFT(nperseg);
-    consolelog(`app.js 808 in welchOptim apres const fft =  new ...`,20)
-    
-    const nSegments = Math.floor((signal.length - nperseg) / step) + 1;
-    consolelog(`app.js 811 in welchOptim window(0..3)=${window[0]} ${window[1]} ${window[2]} ${window[3]}`,10)
-    consolelog(`app.js 812 in welchOptim nperseg=${nperseg} |signal|=${signal.length} step=${step} nSegments=${nSegments}`,10)
-    if (nSegments <= 0)
-	return [] ;
+  const fft = new FFT(nperseg);
+  const nSegments = Math.floor((signal.length - nperseg) / step) + 1;
+  consolelog(
+    `welchOptim window(0..3)=${window[0]} ${window[1]} ${window[2]} ${window[3]} nSegments=${nSegments}`,
+    10,
+  );
+  if (nSegments <= 0) {
+    return [];
+  }
 
-    const half = Math.floor(nperseg / 2);
-    const Pxx = new Float64Array(half + 1);
+  const half = Math.floor(nperseg / 2);
+  const Pxx = new Float64Array(half + 1);
 
-    for (let seg = 0; seg < nSegments; seg++) {
-        const start = seg * step;
-        const segment = signal.slice(start, start + nperseg).map((v,i) => v*window[i]);
-	consolelog(`app.js l822 seg=${seg} segment(0..3)=${segment[0]} ${segment[1]} ${segment[2]} ${segment[3]}`,20);
-        const spectrum = fft.forward(segment);
-        for (let k = 0; k <= half; k++) {
-            const re = spectrum[2*k];
-            const im = spectrum[2*k+1];
-            Pxx[k] += (re*re + im*im)/(U*fs);
-        }
+  for (let seg = 0; seg < nSegments; seg += 1) {
+    const start = seg * step;
+    const segment = signal
+      .slice(start, start + nperseg)
+      .map((v, i) => v * window[i]);
+    const spectrum = fft.forward(segment);
+    for (let k = 0; k <= half; k += 1) {
+      const re = spectrum[2 * k];
+      const im = spectrum[2 * k + 1];
+      Pxx[k] += (re * re + im * im) / (U * fs);
     }
+  }
 
-    for (let k = 0; k <= half; k++) {
-        Pxx[k] /= nSegments;
-    }
-    consolelog(`app.js l812 ${typeof fft.destroy}`,20);
-    if (fft && typeof fft.destroy === 'function') {
-	consolelog(`app.js destroying fft`,20)
-        fft.destroy();
-    }
+  if (typeof fft.destroy === "function") {
+    fft.destroy();
+  } else if (typeof fft.dispose === "function") {
     fft.dispose();
-    return Pxx.map(Math.sqrt);
-}  // FIN function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
-// ***************************************************************************************************
+  }
 
-function welchOptimOpt1(signal, fs = 1, nperseg = 256, noverlap = null) {
-    consolelog(`entering welchOptim: fs=${fs}, nperseg=${nperseg}, noverlap=${noverlap}, signal[0..1]=${signal[0]} ${signal[1]}`, 10);
+  for (let k = 0; k <= half; k += 1) {
+    Pxx[k] = Math.sqrt(Pxx[k] / nSegments);
+  }
 
-    if (noverlap === null)
-        noverlap = Math.floor(nperseg / 2);
+  return Pxx;
+}
 
-    const step = nperseg - noverlap;
-    if (step <= 0)
-        throw new Error("noverlap doit être < nperseg");
+const appApi = {
+  get verboseThresholdGlobal() {
+    return globals.verboseThresholdGlobal;
+  },
+  consolelog: globals.consolelog,
+  get JC() {
+    return globals.JC;
+  },
+  startServer,
+};
 
-    const window = hanning(nperseg);
-    const U = window.reduce((acc, w) => acc + w * w, 0);
+const isMainModule = () => {
+  if (!process.argv[1]) {
+    return false;
+  }
+  try {
+    return import.meta.url === pathToFileURL(process.argv[1]).href;
+  } catch (error) {
+    consolelog(error);
+    return false;
+  }
+};
 
-    let fft;
-    try {
-        fft = new FFTW.FFT(nperseg);
+if (isMainModule()) {
+  startServer();
+}
 
-        const nSegments = Math.floor((signal.length - nperseg) / step) + 1;
-        consolelog(`nSegments=${nSegments}, signal.length=${signal.length}`, 10);
-        if (nSegments <= 0) return [];
-
-        const half = Math.floor(nperseg / 2);
-        const Pxx = new Float64Array(half + 1);
-
-        // Pré-allocation du segment pour éviter slice à chaque fois
-        const segment = new Float64Array(nperseg);
-
-        // Optionnel : tableau pour réutiliser la sortie FFT
-        // const spectrum = new Float64Array(nperseg * 2); // si FFTW le permet
-
-        for (let seg = 0; seg < nSegments; seg++) {
-            const start = seg * step;
-
-            // Remplir le segment réutilisable avec fenêtrage
-            for (let i = 0; i < nperseg; i++) {
-                segment[i] = signal[start + i] * window[i];
-            }
-
-            const spectrum = fft.forward(segment); // si FFTW permet de réutiliser spectrum, on pourrait éviter l'allocation ici
-
-            for (let k = 0; k <= half; k++) {
-                const re = spectrum[2*k];
-                const im = spectrum[2*k+1];
-                Pxx[k] += (re*re + im*im)/(U*fs);
-            }
-        }
-
-        for (let k = 0; k <= half; k++) {
-            Pxx[k] /= nSegments;
-        }
-
-        consolelog(`leaving welchOptim: Pxx[0]=${Pxx[0]}`, 10);
-        return Pxx.map(Math.sqrt);
-
-    } finally {
-        if (fft && typeof fft.destroy === 'function') {
-            fft.destroy();
-        }
-    }
-} // FIN function welchOptimOpt1(signal, fs = 1, nperseg = 256, noverlap = null) {
-// ********************************************************************************************************
-
-function welchOptimOpt2(signal, fs = 1, nperseg = 256, noverlap = null) {
-    consolelog(`entering welchOptim: fs=${fs}, nperseg=${nperseg}, noverlap=${noverlap}, signal[0..1]=${signal[0]} ${signal[1]}`, 10);
-
-    if (noverlap === null)
-        noverlap = Math.floor(nperseg / 2);
-
-    const step = nperseg - noverlap;
-    if (step <= 0)
-        throw new Error("noverlap doit être < nperseg");
-
-    const window = hanning(nperseg);
-    const U = window.reduce((acc, w) => acc + w * w, 0);
-
-    let fft;
-    try {
-        fft = new FFTW.FFT(nperseg);
-
-        const nSegments = Math.floor((signal.length - nperseg) / step) + 1;
-        consolelog(`nSegments=${nSegments}, signal.length=${signal.length}`, 10);
-        if (nSegments <= 0) return [];
-
-        const half = Math.floor(nperseg / 2);
-        const Pxx = new Float64Array(half + 1);
-
-        // Pré-allocation du segment pour éviter slice
-        const segment = new Float64Array(nperseg);
-
-        // Pré-allocation du spectre si FFTW le permet (taille 2*nperseg pour [re, im])
-        const spectrum = new Float64Array(nperseg * 2);
-
-        for (let seg = 0; seg < nSegments; seg++) {
-            const start = seg * step;
-
-            // Remplir le segment réutilisable avec fenêtrage
-            for (let i = 0; i < nperseg; i++) {
-                segment[i] = signal[start + i] * window[i];
-            }
-
-            // FFT in-place si possible
-            fft.forward(segment, spectrum);
-
-            for (let k = 0; k <= half; k++) {
-                const re = spectrum[2*k];
-                const im = spectrum[2*k + 1];
-                Pxx[k] += (re*re + im*im)/(U*fs);
-            }
-        }
-
-        for (let k = 0; k <= half; k++) {
-            Pxx[k] /= nSegments;
-        }
-
-        consolelog(`leaving welchOptim: Pxx[0]=${Pxx[0]}`, 10);
-        return Pxx.map(Math.sqrt);
-
-    } finally {
-        if (fft && typeof fft.destroy === 'function') {
-            fft.destroy();
-        }
-    }
-} // FIN function welchOptimOpt2(signal, fs = 1, nperseg = 256, noverlap = null) {
-// ***************************************************************************************************
-
+export { startServer };
+export default appApi;
