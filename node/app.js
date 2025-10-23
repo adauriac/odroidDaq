@@ -291,6 +291,7 @@ app.get('/fft/', (req, res)=>{
 	let dataToSend = '{"fft_x1":' + generateFft_x(data.length,freqMin)
 	dataToSend += ','
 	dataToSend += '"fft_y1":' + jsonize(result)+',\n'
+	result = null
 	if (seg==1) {
 	    dataToSend += '"f0": 0,\n'
 	    dataToSend += '"fft_x2": 0,\n'
@@ -807,8 +808,8 @@ function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
     consolelog(`app.js 808 in welchOptim apres const fft =  new ...`,20)
     
     const nSegments = Math.floor((signal.length - nperseg) / step) + 1;
-    consolelog(`app.js 861 in welchOptim window(0..3)=${window[0]} ${window[1]} ${window[2]} ${window[3]}`,10)
-    consolelog(`app.js 861 in welchOptim nperseg=${nperseg} |signal|=${signal.length} step=${step} nSegments=${nSegments}`,10)
+    consolelog(`app.js 811 in welchOptim window(0..3)=${window[0]} ${window[1]} ${window[2]} ${window[3]}`,10)
+    consolelog(`app.js 812 in welchOptim nperseg=${nperseg} |signal|=${signal.length} step=${step} nSegments=${nSegments}`,10)
     if (nSegments <= 0)
 	return [] ;
 
@@ -818,7 +819,7 @@ function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
     for (let seg = 0; seg < nSegments; seg++) {
         const start = seg * step;
         const segment = signal.slice(start, start + nperseg).map((v,i) => v*window[i]);
-	consolelog(`app.js l871 seg=${seg} segment(0..3)=${segment[0]} ${segment[1]} ${segment[2]} ${segment[3]}`,10);
+	consolelog(`app.js l822 seg=${seg} segment(0..3)=${segment[0]} ${segment[1]} ${segment[2]} ${segment[3]}`,20);
         const spectrum = fft.forward(segment);
         for (let k = 0; k <= half; k++) {
             const re = spectrum[2*k];
@@ -830,9 +831,12 @@ function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
     for (let k = 0; k <= half; k++) {
         Pxx[k] /= nSegments;
     }
-    consolelog(`app.js l882 leaving welch with  Pxx[0]=${Pxx[0]}`,10);
-    if (fft && typeof fft.destroy === 'function')
+    consolelog(`app.js l812 ${typeof fft.destroy}`,20);
+    if (fft && typeof fft.destroy === 'function') {
+	consolelog(`app.js destroying fft`,20)
         fft.destroy();
+    }
+    fft.dispose();
     return Pxx.map(Math.sqrt);
 }  // FIN function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
 // ***************************************************************************************************
