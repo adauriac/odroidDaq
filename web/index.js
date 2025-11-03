@@ -871,13 +871,12 @@ async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2)
     var trace1 , trace2
     if (fft_change===0) {
 	if (0) {
-	    // BIDON BIDON BIDON POUR NE PAS TRACER LES PTS 1 ET 2 ETC
-	    alert("ATTENTION 4 1er pts removed A ENLEVER index.js l778")// BIDON
-	    fft_x1[1]=0 // BIDON
-	    fft_x1[2]=0 // BIDON
-	    fft_x1[3]=0 // BIDON
-	    fft_x1[4]=0 // BIDON
-	    // FIN BIDON  FIN BIDON  FIN BIDON
+	    // REMOVING THE 4 FIRST POINTS TO SELECT AN APPROPRIATE AUTOSCALE FOR Y AXIS
+	    alert("ATTENTION 4 1er pts removed A ENLEVER index.js l784")
+	    fft_x1[1]=0 
+	    fft_x1[2]=0 
+	    fft_x1[3]=0 
+	    fft_x1[4]=0 
 	}
         //segmentation =1 : 1seule fft
         trace1 = {
