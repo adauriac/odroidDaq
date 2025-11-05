@@ -113,7 +113,7 @@ async function cborRequest(path, options = {}) {
 
     const response = await fetch(url, init);
     if (!response.ok) {
-        throw new Error(`${method} ${url} -> ${response.status}`);
+        throw new Error(`method=${method} url=${url} ->response.status= ${response.status}`);
     }
 
     const contentType = response.headers.get("Content-Type");
@@ -697,7 +697,7 @@ function processCborResponse(response) {
         const fftX2 = ensureTypedArray(response.fft_x2, Float64Array);
         const fftY2 = ensureTypedArray(response.fft_y2, Float64Array);
         addComment('fft done :' + fftY1.length + 'pts');
-        consolelog(`CborResponse( ) fftY1.length :${fftY1.length}, fft change:${fftChange}`,20);
+        consolelog(`CborResponse( ) fftY1.length :${fftY1.length}, fftChange:${fftChange}`,20);
         plotFFT(fftX1, fftY1, fftChange, fftX2, fftY2);
         if (mode_status === 1) {
             nextSequence();

@@ -353,7 +353,7 @@ app.get("/fft/", (req, res) => {
 
   const signal = daq3.getSignalData(gain);
   const seg = Math.max(1, Number.parseInt(req.query.seg, 10) || 1);
-  consolelog(`fft seg=${seg}`, 10);
+    consolelog(`app.get("/fft/") seg=${seg}`, 20);
   setLEDstatus(1);
 
   const applyWelchCache = (payload) => {
@@ -376,6 +376,7 @@ app.get("/fft/", (req, res) => {
       const nbperseg = acq_samples * 1024;
       const baseFreq = samplingRate / signal.length;
 
+      consolelog(`app.get("/fft/") first call signal.length=${signal.length} samplingRate=${samplingRate}  nbperseg=${nbperseg}`,20)
       const primarySpectrum = welchOptim(signal, samplingRate, nbperseg);
       const response = {
         fft_x1: generateFftAxis(signal.length, baseFreq),
@@ -387,6 +388,7 @@ app.get("/fft/", (req, res) => {
 
       if (seg !== 1) {
         const adjustedNperseg = Math.max(1, Math.trunc(nbperseg / seg));
+	  consolelog(`app.get("/fft/") second call signal.length=${signal.length} samplingRate=${samplingRate}  adjustedNperseg=${adjustedNperseg}`,20)
         const secondarySpectrum = welchOptim(
           signal,
           samplingRate,
@@ -396,7 +398,7 @@ app.get("/fft/", (req, res) => {
         response.f0 = secondaryFreq;
         response.fft_x2 = generateFftAxis(adjustedNperseg, secondaryFreq);
         response.fft_y2 = secondarySpectrum;
-      }
+     }
 
       applyWelchCache(response);
       sendCbor(res, response);
