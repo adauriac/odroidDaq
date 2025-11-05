@@ -1,4 +1,3 @@
-console.log("JC debut")
 // valeur du slider 'gain' pour chaque position
 var gainValues=[0,1];
 // valeur du slider 'samples' pour chaque position
@@ -218,7 +217,6 @@ function closeSer() {
  */
 function echoSliderValue(name, value){
     //en reponse a un changement de position d'un slider
-    /// console.log("echo", name, value);
     var output = document.getElementById( name +"Value");
     // cherche la valeur la plus proche
     if (name ==="gain"){
@@ -365,7 +363,7 @@ function nextSequence()
         do {
             //sequence suivante
             seq_status ++;
-            console.log( seq_status, seq_config[seq_status])
+            consolelog(` nextSequence() ${seq_status}, ${seq_config[seq_status]}`,10)
         }while (  seq_config[seq_status]=== false)
         ///['idle', 'acq', 'plot', 'save', 'fft', 'savefft','next' ]
         addComment('step '+ seq_names[seq_status] + " loop:"+ loop_counter.toString() )
@@ -386,7 +384,7 @@ function nextSequence()
                 document.getElementById("go").innerText ="Go!"           
                 document.getElementsByTagName('body')[0].style.cursor = 'default' ; 
                 startTimeInterval() 
-                console.log('sequence done!' )
+                consolelog('nextSequence() sequence done!' ,10)
                 addComment('sequence done!' )
             }
             else{
@@ -396,7 +394,7 @@ function nextSequence()
             }
             break
         }
-        console.log('seq:',seq_status, 'loop:', loop_counter)
+        consolelog(`nextSequence(): ${seq_status}, loop:${loop_counter}`,10)
         document .getElementById('loop_count').innerHTML = loop_counter.toString()
         document .getElementById('seq_status').innerHTML = seq_status.toString()+':'+seq_names[seq_status]
 
@@ -424,7 +422,7 @@ function selectComPort(val)
     // tri dans val
     var value = val.split(" ") ;
     //selectionne un com port
-    console.log('selectComPort', value[0]);
+    consolelog(`selectComPort() value[0]=${value[0]}`,10);
     // initialise
     // var res = initPort(val); 
     postQuery('initSerial', value[0]).then((moduleInfo) => {
@@ -450,7 +448,7 @@ function MakeGetRequest(url, callback) {
               alert('There was an error 400');
            }
            else {
-               console.log('something else other than 200 was returned', xmlhttp.status);
+               consolelog(`something else other than 200 was returned ${xmlhttp.status}`);
            }
         }
     };
@@ -585,7 +583,6 @@ function datafiles()
  */
 async function replot(btn){
     if (btn.id==="replot-w"){
-        console.log('replot w')    
         //efface le plot
         clearGraphs(WAVE)
         //replot
@@ -593,7 +590,6 @@ async function replot(btn){
         consolelog(`async function replot witt btn.id ${btn.id} res=${res}`,20)
     }
     else   if (btn.id==="replot-f"){
-        console.log('replot f') 
         clearGraphs(FFT)
         const res = await asyncPlotFft(fftData)
         consolelog(`async function replot witt btn.id ${btn.id} res=${res}`,20)
@@ -675,17 +671,17 @@ function processCborResponse(response) {
         return;
     }
 
-    if (Object.prototype.hasOwnProperty.call(response, 'JCFFT')) {
-        console.log("server a repondu a getJCFFT");
-        JCFFT = 1;
-        return;
-    }
+    // if (Object.prototype.hasOwnProperty.call(response, 'JCFFT')) {
+    //     console.log("server a repondu a getJCFFT");
+    //     JCFFT = 1;
+    //     return;
+    // }
 
     if (Object.prototype.hasOwnProperty.call(response, 'data')) {
         const dataSeries = ensureTypedArray(response.data, Float64Array);
-        console.log(' datas :', dataSeries.length);
+        consolelog(`processCborResponse() dataSeries.length ${dataSeries.length}`,10);
         plotData(dataSeries);
-        console.log('data plot end');
+        consolelog(`processCborResponse() : data plot end`,10);
         if (mode_status === 1) {
             nextSequence();
         } else {
@@ -701,7 +697,7 @@ function processCborResponse(response) {
         const fftX2 = ensureTypedArray(response.fft_x2, Float64Array);
         const fftY2 = ensureTypedArray(response.fft_y2, Float64Array);
         addComment('fft done :' + fftY1.length + 'pts');
-        console.log(' fft :', fftY1.length, 'fft change :', fftChange);
+        consolelog(`CborResponse( ) fftY1.length :${fftY1.length}, fft change:${fftChange}`,20);
         plotFFT(fftX1, fftY1, fftChange, fftX2, fftY2);
         if (mode_status === 1) {
             nextSequence();
@@ -745,7 +741,7 @@ function processCborResponse(response) {
 
     if (Object.prototype.hasOwnProperty.call(response, 'acqDone')) {
         if (response.acqDone === true) {
-            console.log("acqDone");
+            consolelog("CborResponse() acqDone",10);
             clearInterval(acqDoneInterval);
             acqDoneInterval = 0;
             if (seq_status === 1) {
@@ -774,9 +770,6 @@ function addDeviceToList(data){
     // remplit la listBox comPorts
     if ((typeof(data)==='object') && ( data!==null)){
 //    if ((typeof(data)==='object') && ( data!==null) && (data.id==="Arrow"){
-        console.log("object"); // liste comports
-        console.log(data.path, data.id);
-        console.log("JC : ",data.id=="Arrow");
         var comPorts = document.getElementById('comPorts');
         var option = document.createElement("option");
         option.text = data.path + " - " + data.id;
@@ -808,13 +801,13 @@ function postQuery(name, value)
  */
 async function plotData( data2plot)
 {   
-    console.log('plot start')        
+    consolelog('plotData() : start')        
     
     var xVal = new Array(data2plot.length)
     // Process data for plotting, convert from samples to Milli Seconds
     var i=0
     var periode = 1000 * 1 / acq_samplingrate 
-    console.log('periode(ms) :', periode, ' length:',data2plot.length)
+    consolelog(`periode(ms) : ${periode},  length: ${data2plot.length}`,10)
     while (i < data2plot.length)
     {
         xVal[i] =(i++)*periode
@@ -831,7 +824,7 @@ async function plotData( data2plot)
     const res = await asyncPlot(waveData)
     //retour au curseur normal
     //   document.getElementsByTagName('body')[0].style.cursor = 'default' ; 
-    console.log(res)
+    consolelog(`plotData() res=${res}`,10)
     document.getElementById('replot-w').disabled = false  
 }  // FIN async function plotData( data2plot)
 /********************************************************************************************/
@@ -867,9 +860,8 @@ function asyncPlot(data)
  */
 async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2)
 {
-    console.log('plot start')
+    consolelog('plotFFT()  start',10)
     addComment('ploting fft...')        
-    console.log('x1',fft_x1, 'y1', fft_y1)
     //fft_change : changement de couleur du tracé si !=0 (resultat de 2ffts)
     var trace1 , trace2
     if (fft_change===0) {
@@ -896,7 +888,6 @@ async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2)
     else {
         // segmentation > 1 : 2 ffts
         var index = fft_x1.indexOf(fft_change)
-        //     console.log('sizes :', )
         trace1 = {
             x: fft_x1,  //.slice(0, index+1),
             y: fft_y1, //.slice(0, index+1),   
@@ -923,9 +914,9 @@ async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2)
         }   
         fftData = [ trace1, trace2 ];
     }   
-    console.log('t1',trace1, 't2',trace2, 'dt',fftData)
+    consolelog(`plotFFT() trace1:${trace1} trace2:${trace2}, fftData:${fftData}`,10)
     const res = await asyncPlotFft(fftData)
-    console.log(res)
+    consolelog(`plotFFT() res=${res}`,10)
     // //retour au curseur normal
     document.getElementsByTagName('body')[0].style.cursor = 'default' ;   
     document.getElementById('replot-f').disabled = false  
@@ -934,7 +925,7 @@ async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2)
 
 function asyncPlotFft(data)
 {
-    console.log("asyncPlotFft index.js (l 792) data= ", data)
+    consolelog(`asyncPlotFft() index.js (l 792) data= ${data}`,10)
     return new Promise(resolve => {
         
         if (colorTheme== 1) {   // blue  : blue, dodgerblue
@@ -949,7 +940,7 @@ function asyncPlotFft(data)
         }
 
         addComment( 'fft plot ', data[0].x.length, ' values')
-        console.log( 'fft plot ', data[0].x.length, ' values')
+        consolelog(` asyncPlotFft  data[0].x.length=${data[0].x.length} values`,10)
         //newPlot
         Plotly.react('fftGraph', data, fftLayout, traceConfig);     
         resolve('asyncPlot end')
@@ -980,7 +971,6 @@ function  clearGraphs( grap =ALL)
  * préparation de la page
  */
 function setupPage(){
-    console.log('setup page')
     //initialise la page 
     document.getElementById('story').value =''
     //efface les anciennes options
@@ -989,7 +979,7 @@ function setupPage(){
     comPorts.remove(comPorts.selectedIndex); 
     for (var i = 0; i < comPorts.length; i++){
         comPorts.options[0].remove()
-        console.log("remove "+i)
+        consolelog(`setupPage() remove ${i}`,10)
     }
     document.getElementById("theme-selector").value= colorTheme 
     document.getElementById('gain').value ='3'   
@@ -1063,7 +1053,7 @@ function enableButtons( value){
  */
 function initPage(data)
 {
-    console.log('initPage',data)
+    consolelog(`initPage() : data=${data}`,10)
     // init de la page en fonction de data : tableau JSON contenant les caracteristiques du module TEI
     // nom dans textarea
     var textarea = document.getElementById('story')
@@ -1082,7 +1072,6 @@ function initPage(data)
     gainValues  = data.gainList
     document.getElementById('gain').max = gainValues.length 
     document.getElementById('gain').disabled = false
-    //console.log(gainValues)
     document.getElementById('gainValue').innerHTML =gainValues[2]
     document.getElementById('samples').disabled = false
     document.getElementById('acq').disabled = false
@@ -1102,10 +1091,10 @@ function initPage(data)
     document.getElementById('loop').disabled = false
     document.getElementById('go').disabled = false  
     //mise à l'heure de l'odroid
-    console.log('setdate')
+    consolelog('initPage() : setdate',10)
     postQuery('dateset', Date.now() )
     // demarrage timer horloge  
-    console.log('start timers')
+    consolelog('initPage() : start timers',10)
     startTimeInterval()
     startCpuTempInterval()
     sizeGraphs()
@@ -1125,7 +1114,6 @@ function checkFFT(w){
 function switchTheme(e) {
     colorTheme = document.getElementById("theme-selector").value;
     document.getElementById('main').setAttribute('data-theme', colorTheme);
-    console.log(colorTheme);
 }  // FIN function switchTheme(e) {
 /********************************************************************************************/
 
