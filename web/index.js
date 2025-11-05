@@ -9,6 +9,13 @@ const CBOR_MIME = "application/cbor";
 let cborEncode = null;
 let cborDecode = null;
 let cborReadyPromise = null;
+let verboseThresholdGlobal = 11;
+
+function consolelog(message, verbose = Number.MAX_SAFE_INTEGER - 1) {
+    if (verbose >= verboseThresholdGlobal) {
+        console.log(message);
+    }
+}
 
 function hasValidCbor(api) {
     return api && typeof api.encode === "function" && typeof api.decode === "function";
@@ -219,16 +226,12 @@ function echoSliderValue(name, value){
         //configure le DAQ3
         postQuery(name, value)
         addComment('set '  + name + '=' + gainValues[value-1] )
-    }
-    else {
-
+    }  else {
         // affiche cette valeur 
         output.innerHTML = samplesValues[value-1];
         postQuery(name, samplesValues[value-1])
         addComment('set '  + name + '=' + samplesValues[value-1] )
-
     }
-    console.log(value);
 }
 /********************************************************************************************/
 
@@ -236,7 +239,7 @@ function findNearestValue(val, Values)
 {
     // recherche la valeur la plus proche de 'val' dans le tableau 'Values'
     var max= Values.length-1;
-    console.log("table max :", max);
+    consolelog(`table findNearestValue() max=${max}`,10);
     var rem1, rem2, output=1;
     if (val >= Values[max]) 
         return Values[max];
@@ -244,7 +247,6 @@ function findNearestValue(val, Values)
         if ((val >= Values[i]) && (val < Values[i+1])){
             rem1 = val%Values[i]; 
             rem2 = val%Values[i+1];
-            console.log
             if (rem1 <= rem2 ) output= Values[i];
             else output = Values[i+1];
             break;
@@ -283,7 +285,7 @@ function setButtonValue(button, testVal)
         if (button.name === value)
             path= 'gpio'
     })
-    console.log('->', path  + query);		
+    consolelog(`setButtonValue() path, query= ${path},${query}`,10);		
     addComment(path  + query )
     //en fonction du bouton cliqué configure le DAQ3
     postQuery(path, query);
@@ -297,7 +299,7 @@ function setButtonValue(button, testVal)
  */
 function extGainChange( widget )
 {  
-    console.log("external gain = ", widget.value )
+    consolelog(`external gain = ${widget.value}`,10)
     postQuery('extgain',  widget.value)
 }  // FIN
 /********************************************************************************************/
@@ -308,7 +310,7 @@ function extGainChange( widget )
  */
 function segmentChange(widget )
 {  
-    console.log("segmentation = ", widget.value )
+    consolelog(`segmentation = ${widget.value}`,10 )
     postQuery('segment',  widget.value)
 }  // FIN
 /********************************************************************************************/
@@ -321,7 +323,7 @@ function sequence()
     //change le mode manu/sequence
     if (mode_status == 0){
         //on passe en mode sequence
-        console.log(seq_config)
+        consolelog(`seq_config`,10)
         mode_status= 1
         document.getElementById("go").innerText ="Stop!"
         //config de la sequence ['acq', 'plot', 'save', 'fft', 'savefft','next' ]
@@ -332,7 +334,7 @@ function sequence()
         seq_config[5] = document.getElementById('chk_savefft').checked
         seq_status=1 //acquiring 
         loop_counter =0;
-        console.log('go:',seq_config)
+        consolelog(`go: ${seq_config}`)
         addComment("sequence for "+seq_loop.toString() + " loops")
         acquire()
         
@@ -480,7 +482,7 @@ function acquire()
 {
     playSound()
     // lance l'acquisition  
-    console.log('acquisition')
+    consolelog('acquire',10)
     if (mode_status===0)
         // efface les graphiques
         clearGraphs()
@@ -496,7 +498,7 @@ function acquire()
     //curseur 'loading pendant le changement de page (programmation fpga)
     document.getElementsByTagName('body')[0].style.cursor ='wait'; //sablier         
     addComment('acquiring...')
-    console.log("JC: lance getQuery de index.js") // JC
+    consolelog("JC: lance getQuery de index.js",10) // JC
     getQuery('acquire');   
 
     //interroge regulierement l'odroid pour connaitre la fin d'acquisition
@@ -504,7 +506,7 @@ function acquire()
         acqDoneInterval =   setInterval(function () {
             getQuery('done?');
         }, 1000);
-    console.log("JC fin getQuery") // JC
+    consolelog("JC fin getQuery",10) // JC
 }  // FIN function acquire()
 /********************************************************************************************/
 /**
@@ -514,7 +516,7 @@ function save()
 {
     var fname = document.getElementById('fname').value
     // sauve les données temporelles  
-    console.log('saving')
+    consolelog(`saving ${fname}`,10)
     getQuery('/save?f='+fname);   
 }  // FIN 
 /********************************************************************************************/
@@ -523,7 +525,7 @@ function save()
  * envoie une requete au daq3 pour ploter les données acquises
  */
 function plot(){
-    console.log('get data')
+    consolelog('getting  data',10)
     document.getElementsByTagName('body')[0].style.cursor ='wait'; //sablier         
     addComment('get data...')
     getQuery('/data')
@@ -535,7 +537,8 @@ function plot(){
  * envoie une requete au daq3 pour lancer une fft sur les données acquises
  */
 function fft(){
-    console.log('fft')
+    consolelog('entering fft()',10)
+    clearGraphs(FFT) // to show a re-drawing when fft button pushed twice
     // segmentation s = floor(N/p): N=nbre de points, p=1 par defaut (puissances de 2)
     // freq echantillonage f: depend du module 2Ms 2e6  
     addComment('ffting...')
@@ -559,7 +562,7 @@ function fftsave()
 {
     var fname = document.getElementById('fname').value
     // sauve les données fresuntielles 
-    console.log('saving fft')
+    consolelog('entering fftsave()',20)
     getQuery('/savefft?f='+fname);   
 }  // FIN 
 /*************************************************************************************************************/
@@ -587,13 +590,13 @@ async function replot(btn){
         clearGraphs(WAVE)
         //replot
         const res = await asyncPlot(waveData)
-        console.log(res)
+        consolelog(`async function replot witt btn.id ${btn.id} res=${res}`,20)
     }
     else   if (btn.id==="replot-f"){
         console.log('replot f') 
         clearGraphs(FFT)
         const res = await asyncPlotFft(fftData)
-        console.log(res)
+        consolelog(`async function replot witt btn.id ${btn.id} res=${res}`,20)
     }
 }  // FIN 
 /********************************************************************************************************/
@@ -604,7 +607,7 @@ async function replot(btn){
 function sizeGraphs(){
 
     var h = document.getElementById('traces').clientHeight 
-    console.log('h:',h)
+    consolelog(`in sizeGraphs() h:${h}`,10)
     document.getElementById('graph').style.height = h *0.25+'px'
     document.getElementById('fftGraph').style.height= h *0.75+'px'
 }  // FIN 
@@ -648,7 +651,7 @@ function help()
 function getQuery(q)
 {
     const url = normalizePath(q);
-    console.log("JC calling getQuery with ", url);
+    consolelog(` entering getQuery() with q=${q} url=${url}`,20);
     cborRequest(url)
         .then((response) => {
             processCborResponse(response);
@@ -663,7 +666,7 @@ function processCborResponse(response) {
     }
 
     if (Array.isArray(response.serial)) {
-        console.log("serial", response.serial);
+        consolelog(`processCborResponse()  response.serial=${response.serial}`,20);
         response.serial.forEach(addDeviceToList);
         const comPorts = document.getElementById('comPorts');
         if (comPorts && comPorts.options.length && comPorts.options[0].value === "") {
