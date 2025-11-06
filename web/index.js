@@ -233,8 +233,7 @@ function echoSliderValue(name, value){
 }
 /********************************************************************************************/
 
-function findNearestValue(val, Values)
-{
+function findNearestValue(val, Values){
     // recherche la valeur la plus proche de 'val' dans le tableau 'Values'
     var max= Values.length-1;
     consolelog(`table findNearestValue() max=${max}`,10);
@@ -261,8 +260,7 @@ function findNearestValue(val, Values)
  * @param {*} button 
  * @param {boolean} testVal : true/false
  */
-function setButtonValue(button, testVal)
-{    
+function setButtonValue(button, testVal){    
     //en reponse a un clic sur une checkbox
     var value
 
@@ -295,8 +293,7 @@ function setButtonValue(button, testVal)
  * envoie requete au daq3 pour changer sa config
  * @param {} widget 
  */
-function extGainChange( widget )
-{  
+function extGainChange( widget ){  
     consolelog(`external gain = ${widget.value}`,10)
     postQuery('extgain',  widget.value)
 }  // FIN
@@ -306,8 +303,7 @@ function extGainChange( widget )
  * envoie requete au daq3 pour changer sa config
  * @param {*} widget 
  */
-function segmentChange(widget )
-{  
+function segmentChange(widget ){  
     consolelog(`segmentation = ${widget.value}`,10 )
     postQuery('segment',  widget.value)
 }  // FIN
@@ -316,8 +312,7 @@ function segmentChange(widget )
 /**
  * lancement d'une sequence
  */
-function sequence()
-{
+function sequence(){
     //change le mode manu/sequence
     if (mode_status == 0){
         //on passe en mode sequence
@@ -356,8 +351,7 @@ function sequence()
 /**
  * etape suivante dans la sequence
  */
-function nextSequence()
-{
+function nextSequence(){
     if(mode_status === 1){
         //on est bien en mode sequence
         do {
@@ -405,8 +399,7 @@ function nextSequence()
 /**
  * envoie une requete pour connaitre touts les comports disponible sur l'odroid
  */
-function checkComPorts()
-{ 
+function checkComPorts(){ 
     //ajoute au select autant d'options que com ports
     getQuery('/listSerial');   
 }  // FIN
@@ -417,8 +410,7 @@ function checkComPorts()
  * on envoie une requete pour initialiser ce port sur l'odroid
  * @param {} val 
  */
-function selectComPort(val)
-{
+function selectComPort(val){
     // tri dans val
     var value = val.split(" ") ;
     //selectionne un com port
@@ -476,8 +468,7 @@ function addComment(data){
  * disable les boutons et change le curseur (sablier)
  * et fait la requete d'acquisition au daq3
  */
-function acquire()
-{
+function acquire(){
     playSound()
     // lance l'acquisition  
     consolelog('acquire',10)
@@ -510,8 +501,7 @@ function acquire()
 /**
  * envoie une requete au daq3 pour sauvegarder les données acquises
  */
-function save()
-{
+function save(){
     var fname = document.getElementById('fname').value
     // sauve les données temporelles  
     consolelog(`saving ${fname}`,10)
@@ -556,8 +546,7 @@ function fft(){
 /**
  * envoie une requete pour sauvegarder sur l'odroid les données FFT
  */
-function fftsave()
-{
+function fftsave(){
     var fname = document.getElementById('fname').value
     // sauve les données fresuntielles 
     consolelog('entering fftsave()',20)
@@ -569,8 +558,7 @@ function fftsave()
  * @brief ouvre une fenetre pour la gestion (effacement, download..) des données sauvegardées
  * 
  */
-function datafiles()
-{
+function datafiles(){
     // ouvre une fenetre upload
     // sans les features, ouvre un nouvel onglet...
     window.open('upload.html', "upload" );//, "width=1000, height=1000, centerscreen=yes");
@@ -623,8 +611,7 @@ function playSound () {
  * @brief arrete l'appli, et shutdown l'odroid (par /usr/local/bin/shutDown.sh)
  *  
  * */ 
-function quit()
-{
+function quit(){
     if (confirm("Sure to shutdown NodeFFT ?") )
         postQuery('quit');
 
@@ -634,8 +621,7 @@ function quit()
 /**
  * ouvre une nouvel onglet pour y afficher la page de doc 'utilisation' disponible sur le site elec.neel
  * */
-function help()
-{
+function help(){
     window.open('http://elec.neel.cnrs.fr/NodeFFT/util/');
 }  // FIN 
 /********************************************************************************************************/
@@ -644,8 +630,7 @@ function help()
  * @brief envoie une requete GET
  * @param  q  : la requete
  */
-function getQuery(q)
-{
+function getQuery(q){
     const url = normalizePath(q);
     consolelog(` entering getQuery() with q=${q} url=${url}`,20);
     cborRequest(url)
@@ -784,8 +769,7 @@ function addDeviceToList(data){
  * @param {*} name 
  * @param {*} value 
  */
-function postQuery(name, value)
-{
+function postQuery(name, value){
     const payload = (value === undefined) ? {} : { val: value };
     return cborRequest(name, { method: "POST", body: payload, keepalive: true })
         .catch((error) => {
@@ -799,8 +783,7 @@ function postQuery(name, value)
  * trace une donnée analogique dans 
  * @param {*} data2plot 
  */
-async function plotData( data2plot)
-{   
+async function plotData( data2plot){   
     consolelog('plotData() : start')        
     
     var xVal = new Array(data2plot.length)
@@ -829,8 +812,7 @@ async function plotData( data2plot)
 }  // FIN async function plotData( data2plot)
 /********************************************************************************************/
 
-function asyncPlot(data)
-{
+function asyncPlot(data){
     return new Promise(resolve => {
 
         if (colorTheme== 1) {   // blue : dodgerblue
@@ -858,8 +840,7 @@ function asyncPlot(data)
  * @param {*} fft_x2  fft2 valeurs de x
  * @param {*} fft_y2  fft2 valeurs de y
  */
-async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2)
-{
+async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2){
     consolelog('plotFFT()  start',10)
     addComment('ploting fft...')        
     //fft_change : changement de couleur du tracé si !=0 (resultat de 2ffts)
@@ -923,8 +904,7 @@ async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2)
 }  // FIN async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2)
 /********************************************************************************************/
 
-function asyncPlotFft(data)
-{
+function asyncPlotFft(data){
     consolelog(`asyncPlotFft() index.js (l 792) data= ${data}`,10)
     return new Promise(resolve => {
         
@@ -952,8 +932,7 @@ function asyncPlotFft(data)
  * efface les graphes
  * @param {*} grap 
  */
-function  clearGraphs( grap =ALL)    
-{
+function  clearGraphs( grap =ALL){
     var graphDiv
     //efface les graphiques ALL = FFT + WAVE
     if (grap & WAVE) {
@@ -965,7 +944,7 @@ function  clearGraphs( grap =ALL)
         Plotly.purge(graphDiv);
     }
 }  // FIN function  clearGraphs( grap =ALL)    
-/*************************************************************************************************************/
+/********************************************************************************************/
 
 /**
  * préparation de la page
@@ -1051,8 +1030,7 @@ function enableButtons( value){
 /**
  * initialisation de la page, une fois le module selectionné
  */
-function initPage(data)
-{
+function initPage(data){
     consolelog(`initPage() : data=${data}`,10)
     // init de la page en fonction de data : tableau JSON contenant les caracteristiques du module TEI
     // nom dans textarea

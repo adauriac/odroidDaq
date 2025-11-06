@@ -373,7 +373,7 @@ app.get("/fft/", (req, res) => {
 	    const nbperseg = acq_samples * 1024;
 	    const baseFreq = samplingRate / signal.length;
 
-	    consolelog(`app.get("/fft/") first call signal.length=${signal.length} samplingRate=${samplingRate}  nbperseg=${nbperseg}`,10)
+	    consolelog(`app.get("/fft/") first call signal.length=${signal.length} samplingRate=${samplingRate}  nbperseg=${nbperseg}`,20)
 	    const primarySpectrum = welchOptim(signal, samplingRate, nbperseg);
 	    const response = {
 		fft_x1: generateFftAxis(signal.length, baseFreq),
