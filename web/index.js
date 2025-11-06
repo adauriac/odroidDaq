@@ -549,7 +549,7 @@ function fft(){
 function fftsave(){
     var fname = document.getElementById('fname').value
     // sauve les données fresuntielles 
-    consolelog('entering fftsave()',20)
+    consolelog('entering fftsave()',10)
     getQuery('/savefft?f='+fname);   
 }  // FIN 
 /*************************************************************************************************************/
@@ -575,12 +575,12 @@ async function replot(btn){
         clearGraphs(WAVE)
         //replot
         const res = await asyncPlot(waveData)
-        consolelog(`async function replot witt btn.id ${btn.id} res=${res}`,20)
+        consolelog(`async function replot witt btn.id ${btn.id} res=${res}`,10)
     }
     else   if (btn.id==="replot-f"){
         clearGraphs(FFT)
         const res = await asyncPlotFft(fftData)
-        consolelog(`async function replot witt btn.id ${btn.id} res=${res}`,20)
+        consolelog(`async function replot witt btn.id ${btn.id} res=${res}`,10)
     }
 }  // FIN 
 /********************************************************************************************************/
@@ -632,7 +632,7 @@ function help(){
  */
 function getQuery(q){
     const url = normalizePath(q);
-    consolelog(` entering getQuery() with q=${q} url=${url}`,20);
+    consolelog(` entering getQuery() with q=${q} url=${url}`,10);
     cborRequest(url)
         .then((response) => {
             processCborResponse(response);
@@ -647,7 +647,7 @@ function processCborResponse(response) {
     }
 
     if (Array.isArray(response.serial)) {
-        consolelog(`processCborResponse()  response.serial=${response.serial}`,20);
+        consolelog(`processCborResponse()  response.serial=${response.serial}`,10);
         response.serial.forEach(addDeviceToList);
         const comPorts = document.getElementById('comPorts');
         if (comPorts && comPorts.options.length && comPorts.options[0].value === "") {
@@ -682,7 +682,7 @@ function processCborResponse(response) {
         const fftX2 = ensureTypedArray(response.fft_x2, Float64Array);
         const fftY2 = ensureTypedArray(response.fft_y2, Float64Array);
         addComment('fft done :' + fftY1.length + 'pts');
-        consolelog(`CborResponse( ) fftY1.length :${fftY1.length}, fftChange:${fftChange}`,20);
+        consolelog(`CborResponse( ) fftY1.length :${fftY1.length}, fftChange:${fftChange}`,10);
         plotFFT(fftX1, fftY1, fftChange, fftX2, fftY2);
         if (mode_status === 1) {
             nextSequence();
@@ -878,7 +878,7 @@ async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2){
             },
             name : 'seg=1',
             opacity :0.5,
-            mode: 'lines+markers'    ///'lines'  
+            mode: 'lines'    // 'lines+markers'
         };   
         trace2 = {
             x: fft_x2,  //.slice( index),
@@ -887,17 +887,14 @@ async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2){
             line :{
                 color : 'rgba(0,0,255,0.8)'
             },
-            opacity :0.5,
-
             name : 'seg=N',
-            mode: 'lines+markers' //'lines'  
-
+            opacity :0.5,
+            mode: 'lines'   // 'lines+markers'
         }   
         fftData = [ trace1, trace2 ];
     }   
     consolelog(`plotFFT() trace1:${trace1} trace2:${trace2}, fftData:${fftData}`,10)
-    const res = await asyncPlotFft(fftData)
-    consolelog(`plotFFT() res=${res}`,10)
+    await asyncPlotFft(fftData)
     // //retour au curseur normal
     document.getElementsByTagName('body')[0].style.cursor = 'default' ;   
     document.getElementById('replot-f').disabled = false  
@@ -906,7 +903,7 @@ async function plotFFT(fft_x1, fft_y1, fft_change, fft_x2, fft_y2){
 
 function asyncPlotFft(data){
     consolelog(`asyncPlotFft() index.js (l 792) data= ${data}`,10)
-    return new Promise(resolve => {
+    return new Promise(function (resolve) {
         
         if (colorTheme== 1) {   // blue  : blue, dodgerblue
             fftLayout.font.color = 'rgb(0,0,0)'
@@ -922,8 +919,11 @@ function asyncPlotFft(data){
         addComment( 'fft plot ', data[0].x.length, ' values')
         consolelog(` asyncPlotFft  data[0].x.length=${data[0].x.length} values`,10)
         //newPlot
-        Plotly.react('fftGraph', data, fftLayout, traceConfig);     
-        resolve('asyncPlot end')
+	if (0) 
+	    alert("skipping Plotly.react()")
+	else
+	    Plotly.react('fftGraph', data, fftLayout, traceConfig);     
+        resolve()
     }   )
 }  // FIN function asyncPlotFft(data)
 /********************************************************************************************/

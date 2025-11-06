@@ -13,6 +13,7 @@ import fileStore from "./files.js";
 import TEIs from "./TEImodules.js";
 import daq3 from "./daq3.js";
 
+//  dans le REPL remplacer l'import par const fftw = require("fftw-js")
 const FFT = fftw?.FFT ?? fftw?.default?.FFT;
 if (typeof FFT !== "function") {
     throw new Error("FFT constructor not found in fftw-js module");
@@ -350,7 +351,7 @@ app.get("/fft/", (req, res) => {
 
     const signal = daq3.getSignalData(gain);
     const seg = Math.max(1, Number.parseInt(req.query.seg, 10) || 1);
-    consolelog(`app.get("/fft/") seg=${seg}`, 20);
+    consolelog(`app.get("/fft/") seg=${seg}`, 10);
     setLEDstatus(1);
 
     const applyWelchCache = (payload) => {
@@ -373,7 +374,7 @@ app.get("/fft/", (req, res) => {
 	    const nbperseg = acq_samples * 1024;
 	    const baseFreq = samplingRate / signal.length;
 
-	    consolelog(`app.get("/fft/") first call signal.length=${signal.length} samplingRate=${samplingRate}  nbperseg=${nbperseg}`,20)
+	    consolelog(`app.get("/fft/") first call signal.length=${signal.length} samplingRate=${samplingRate}  nbperseg=${nbperseg}`,10)
 	    const primarySpectrum = welchOptim(signal, samplingRate, nbperseg);
 	    const response = {
 		fft_x1: generateFftAxis(signal.length, baseFreq),
@@ -385,7 +386,7 @@ app.get("/fft/", (req, res) => {
 
 	    if (seg !== 1) {
 		const adjustedNperseg = Math.max(1, Math.trunc(nbperseg / seg));
-		consolelog(`app.get("/fft/") second call signal.length=${signal.length} samplingRate=${samplingRate}  adjustedNperseg=${adjustedNperseg}`,20)
+		consolelog(`app.get("/fft/") second call signal.length=${signal.length} samplingRate=${samplingRate}  adjustedNperseg=${adjustedNperseg}`,10)
 		const secondarySpectrum = welchOptim(
 		    signal,
 		    samplingRate,
@@ -796,10 +797,7 @@ function hanning(M) {
 }
 
 function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
-    consolelog(
-	`welchOptim fs=${fs} nperseg=${nperseg} noverlap=${noverlap} signal(0:1)=${signal[0]} ${signal[1]}`,
-	10,
-    );
+    consolelog(`welchOptim fs=${fs} nperseg=${nperseg} noverlap=${noverlap} signal(0:1)=${signal[0]} ${signal[1]}`,10);
     const resolvedOverlap =
 	  noverlap === null ? Math.floor(nperseg / 2) : noverlap;
     const step = nperseg - resolvedOverlap;
@@ -836,11 +834,8 @@ function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
 	}
     }
 
-    if (typeof fft.destroy === "function") {
-	fft.destroy();
-    } else if (typeof fft.dispose === "function") {
-	fft.dispose();
-    }
+    consolelog(`welchOptim()  : executing fft.dispose();`,10)
+    fft.dispose();
 
     for (let k = 0; k <= half; k += 1) {
 	Pxx[k] = Math.sqrt(Pxx[k] / nSegments);
