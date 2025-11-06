@@ -216,11 +216,9 @@ app.get("/acquire/", (req, res) => {
 
 // reponse à la requete 'save'
 app.get("/save/", (req, res) => {
-  const name = req.query.f;
-  if (!name) {
-    sendCbor(res, { error: "Missing filename" }, 400);
-    return;
-  }
+  let name = req.query.f;
+    if (!name)
+	name = ""; // if no prefix take empty string
   const filename = path.join(dataDirectory, `${name}_sig_${Date.now()}.dat`);
   consolelog(`app.js save -> ${filename}`, 10);
 
@@ -252,14 +250,12 @@ app.get("/save/", (req, res) => {
 
 // reponse à la requete 'savefft'
 app.get("/savefft/", (req, res) => {
-  const name = req.query.f;
-  if (!name) {
-    sendCbor(res, { error: "Missing filename" }, 400);
-    return;
-  }
+  let name = req.query.f;
+    if (!name)
+	name = "";  // no prefix given -> ""
   const dateNow = Date.now();
-  const firstFftFile = path.join(dataDirectory, `${name}_fft_1_${dateNow}.dat`);
-
+    const firstFftFile = path.join(dataDirectory, `${name}_fft_1_${dateNow}.dat`);
+    consolelog(`app.get("/savefft/ : Starting serialization`, 10);
   const serializeFft = (x, y) => {
     const rows = [];
     for (let i = 0; i < x.length; i += 1) {
@@ -269,7 +265,8 @@ app.get("/savefft/", (req, res) => {
   };
 
   try {
-    fs.writeFileSync(firstFftFile, serializeFft(fft_X_1, fft_Y_1));
+      fs.writeFileSync(firstFftFile, serializeFft(fft_X_1, fft_Y_1));
+      consolelog(`app.get("/savefft/ :  Serialization took ${Date.now() - dateNow}`, 10);
     consolelog(`${firstFftFile} Saved!`, 10);
   } catch (err) {
     consolelog(err);
@@ -376,7 +373,7 @@ app.get("/fft/", (req, res) => {
       const nbperseg = acq_samples * 1024;
       const baseFreq = samplingRate / signal.length;
 
-      consolelog(`app.get("/fft/") first call signal.length=${signal.length} samplingRate=${samplingRate}  nbperseg=${nbperseg}`,20)
+      consolelog(`app.get("/fft/") first call signal.length=${signal.length} samplingRate=${samplingRate}  nbperseg=${nbperseg}`,10)
       const primarySpectrum = welchOptim(signal, samplingRate, nbperseg);
       const response = {
         fft_x1: generateFftAxis(signal.length, baseFreq),
