@@ -1004,12 +1004,12 @@ function modeChange(btn) {
     btn.disabled ="true";
     if (btn.id == "man") { 
         document.getElementById("seq").disabled = false;
-        document.getElementById("boutons").style.visibility = "visible"; 
+        //document.getElementById("boutons").style.visibility = "visible"; 
         document.getElementById("sequence").style.visibility = "hidden"; 
     }else // seq
     {  
         document.getElementById("man").disabled = false;
-        document.getElementById("boutons").style.visibility = "hidden";
+        //document.getElementById("boutons").style.visibility = "hidden";
         document.getElementById("sequence").style.visibility =  "visible"; 
     }
 }  // FIN 
