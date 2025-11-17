@@ -372,7 +372,7 @@ function nextSequence(){
             fftsave();  break;
         case 6 : // next /end seq
             loop_counter ++
-            if ( loop_counter === seq_loop){
+            if ( loop_counter === seq_loop && loop_counter>=0){
                 // on afait toutes les boucles de la sequence
                 mode_status =0; loop_counter =0;       seq_status =0 //idle
                 document.getElementById("go").innerText ="Go!"           
