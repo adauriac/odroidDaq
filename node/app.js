@@ -838,7 +838,7 @@ function welchOptim(signal, fs = 1, nperseg = 256, noverlap = null) {
     fft.dispose();
 
     for (let k = 0; k <= half; k += 1) {
-	Pxx[k] = Math.sqrt(Pxx[k] / nSegments);
+	Pxx[k] = Math.sqrt(1.63*Pxx[k] / nSegments); // Julien : 1.63 vient de la litterature
     }
 
     return Pxx;
