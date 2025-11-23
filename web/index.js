@@ -487,7 +487,6 @@ function acquire(){
     //curseur 'loading pendant le changement de page (programmation fpga)
     document.getElementsByTagName('body')[0].style.cursor ='wait'; //sablier         
     addComment('acquiring...')
-    consolelog("JC: lance getQuery de index.js",10) // JC
     getQuery('acquire');   
 
     //interroge regulierement l'odroid pour connaitre la fin d'acquisition
@@ -495,7 +494,6 @@ function acquire(){
         acqDoneInterval =   setInterval(function () {
             getQuery('done?');
         }, 1000);
-    consolelog("JC fin getQuery",10) // JC
 }  // FIN function acquire()
 /********************************************************************************************/
 /**
@@ -655,12 +653,6 @@ function processCborResponse(response) {
         }
         return;
     }
-
-    // if (Object.prototype.hasOwnProperty.call(response, 'JCFFT')) {
-    //     console.log("server a repondu a getJCFFT");
-    //     JCFFT = 1;
-    //     return;
-    // }
 
     if (Object.prototype.hasOwnProperty.call(response, 'data')) {
         const dataSeries = ensureTypedArray(response.data, Float64Array);
