@@ -30,9 +30,13 @@ let JCFFT = 1; // to use either the pld python version or the new js version (JC
 
 const args = process.argv;
 if (args.indexOf("NOJC") !== -1) {
+    console.log("This version of app.js *cannot* with flag NOJC or NOJCFFT")
+    process.exit(0)
     globals.JC = 0;
 }
 if (args.indexOf("NOJCFFT") !== -1) {
+    console.log("This version of app.js *cannot* with flag NOJC or NOJCFFT")
+    process.exit(0)
     JCFFT = 0;
 }
 
@@ -135,8 +139,6 @@ let fft_Y_N = new Float64Array(0);
 /* ********************************************************************* */
 /*                      POUR TESTER WELCH                                */
 /* ********************************************************************* */
-
-consolelog(`# flag JCFFT=${JCFFT}`);
 
 // intervalle de cligotement de la led status
 let blinkLEDinterval = setInterval(blinkLEDstatus, 500);
@@ -409,49 +411,6 @@ app.get("/fft/", (req, res) => {
 	return;
     }
 
-    const pythonCmd = ["./odroidDaq/node/python/fft3.py", "-f ", "-s ", "-m"];
-    pythonCmd[1] = `-f ${TEIs.getModule(TEImodule).AdcSamplingRate}`;
-    pythonCmd[2] = `-s ${acq_samples}`;
-    pythonCmd[3] = `-m ${seg}`;
-
-    let pyOutput = "";
-    const python = spawn("python3", pythonCmd);
-    consolelog(`# fft -> pythonCmd=${pythonCmd}`, 10);
-
-    python.stdout.on("data", (chunk) => {
-	consolelog(`fft python stdout length=${chunk.length}`, 10);
-	pyOutput += chunk.toString();
-    });
-
-    python.stderr.on("data", (chunk) => {
-	consolelog(`fft python stderr=${chunk.toString()}`, 10);
-    });
-
-    python.on("close", (code) => {
-	consolelog(`fft python process closed with code ${code}`, 10);
-	try {
-	    const payload = JSON.parse(pyOutput);
-	    const response = {
-		fft_x1: asFloat64Array(payload.fft_x1),
-		fft_y1: asFloat64Array(payload.fft_y1),
-		f0: payload.f0 ?? 0,
-		fft_x2: asFloat64Array(payload.fft_x2),
-		fft_y2: asFloat64Array(payload.fft_y2),
-	    };
-	    applyWelchCache(response);
-	    sendCbor(res, response);
-	} catch (error) {
-	    consolelog(error);
-	    sendCbor(res, { error: "FFT parsing failed" }, 500);
-	} finally {
-	    blinkLEDinterval = setInterval(blinkLEDstatus, 500);
-	}
-    });
-
-    consolelog("fft -> sending signal to python", 10);
-    python.stdin.write(JSON.stringify(signal));
-    consolelog(`fft -> signal length=${signal.length}`, 10);
-    python.stdin.end();
 });
 
 // reponse à la requete 'listdir?'

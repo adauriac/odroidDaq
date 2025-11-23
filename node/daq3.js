@@ -8,7 +8,6 @@ import { performance } from 'perf_hooks';
 import { getModule } from './TEImodules.js';
 
 const daq3Version = '20221103';
-consolelog(`# flag JC= ${globals.JC}`);
 
 let sp;
 let parser;
@@ -37,8 +36,8 @@ function initParser() {
     var nbBytes = Math.ceil(getModule(moduleID).AdcResolution /4)
     parser = sp.pipe(new ByteLengthParser({ length: 16384 * nbBytes }))
     parser.on('data', function (data) {
-        const startParserFunction = performance.now(); // JC 
-        consolelog(`initParser daq3.js (l 37) Received acceptable data! ${typeof signal}  ${data.length}`,10)
+        // const startParserFunction = performance.now(); // JC 
+        // consolelog(`initParser daq3.js (l 37) Received acceptable data! ${typeof signal}  ${data.length}`,10)
         // positive values reach from 0 to AdcTreshold, 
         // negatives values from AdcTreshold to AdcTreshold*2 
         var threshold = getModule(moduleID).AdcTreshold
@@ -50,50 +49,34 @@ function initParser() {
         }
         var min=0x3ffff, max =0
         //les données arrivent en ascii !  p.ex. : '0','1','A','B','F' pour  0x01ABF
-        const start = performance.now(); // JC
-        if (globals.JC === 1) {
-            consolelog(`a la JC`,10)
-            for (let k = 0; k < Math.trunc(data.length/5) ; k++) {// JC
-                let i = 5*k;// JC
-                let x0 = data[i+0]<=57 ? data[i+0]-48 : data[i+0]-55;// JC
-                let x1 = data[i+1]<=57 ? data[i+1]-48 : data[i+1]-55;// JC
-                let x2 = data[i+2]<=57 ? data[i+2]-48 : data[i+2]-55;// JC
-                let x3 = data[i+3]<=57 ? data[i+3]-48 : data[i+3]-55;// JC
-                let x4 = data[i+4]<=57 ? data[i+4]-48 : data[i+4]-55;// JC
-                var value = 65536*x0 + 4096*x1 + 256*x2 + 16*x3 + x4;// JC
-                if (value > threshold)// Threhold=2**17-1
-                    value = value - maxInt // maxInt = 2**18
-                if (value < min) min =value
-                if (value > max) max =value
-                // signal tableau d'entiers +/- 
-                signal.push(value)// JC
-//		for (let q=0;q<5;q++) // bidon
-//		    consolelog("@ "+data[i+q],100)// bidon
-            }// JC
-        } else {
-            consolelog(`a la pas JC`,10)
-            for( var i=0; i < data.length; i+=nbBytes){
-                // mots de 20 bits 
-                var value = parseInt(data.subarray(i, i+nbBytes), 16)      
-                if (value > threshold)
-                    value = value - maxInt
-                if (value < min) min =value
-                if (value > max) max =value
-                // signal tableau d'entiers +/- 
-                signal.push(value)
-            }
+        // const start = performance.now(); // to analyse performance
+        for (let k = 0; k < Math.trunc(data.length/5) ; k++) {// JC's way
+            let i = 5*k;
+            let x0 = data[i+0]<=57 ? data[i+0]-48 : data[i+0]-55;
+            let x1 = data[i+1]<=57 ? data[i+1]-48 : data[i+1]-55;
+            let x2 = data[i+2]<=57 ? data[i+2]-48 : data[i+2]-55;
+            let x3 = data[i+3]<=57 ? data[i+3]-48 : data[i+3]-55;
+            let x4 = data[i+4]<=57 ? data[i+4]-48 : data[i+4]-55;
+            var value = 65536*x0 + 4096*x1 + 256*x2 + 16*x3 + x4;
+            if (value > threshold)// Threhold=2**17-1
+                value = value - maxInt // maxInt = 2**18
+            if (value < min) min =value
+            if (value > max) max =value
+            // signal tableau d'entiers +/- 
+            signal.push(value)
         }
-        const end = performance.now(); // JC
-        consolelog(`Temps d'exécution conversion dans initParser JC: ${(end - start).toFixed(3)} ms`,10);
+        
+        // const end = performance.now(); 
+        // consolelog(`Temps d'exécution conversion dans initParser JC: ${(end - start).toFixed(3)} ms`,10);
 
         if (signal.length === signalLength) // signalLength est une variable globale affectee dans dataCollect
             //envoie un signal de fin d'acquisition
             eventEmitter.emit('acqDone'); // qui declancher un appel a la fonction acquistionDone
 
-        consolelog(`initParser daq3.js(l 88) signal length ${signal.length} min: ${min.toString(16)} max: ${max.toString(16)}`,10)
-        const endParserFunction = performance.now(); // JC 
-        consolelog(`Temps d'exécution total dans initParser JC: ${(endParserFunction - startParserFunction).toFixed(3)} ms`,10);
-    }) // FIN fonction de parser.on JC
+        //consolelog(`initParser daq3.js(l 88) signal length ${signal.length} min: ${min.toString(16)} max: ${max.toString(16)}`,10)
+        //const endParserFunction = performance.now(); // JC 
+        //consolelog(`Temps d'exécution total dans initParser JC: ${(endParserFunction - startParserFunction).toFixed(3)} ms`,10);
+    }) // FIN parser.on
 } // FIN function initParser()
 /********************************************************************************************/
 
