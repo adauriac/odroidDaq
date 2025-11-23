@@ -23,21 +23,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = 3000;
-const serverVersion = "20230509";
+const serverVersion = "20250921";
 // version adaptée à l'ampli diff_JFE2140
 // gain 5/50, gpio led
-let JCFFT = 1; // to use either the pld python version or the new js version (JCFFT->new javascript)
 
 const args = process.argv;
 if (args.indexOf("NOJC") !== -1) {
     console.log("This version of app.js *cannot* with flag NOJC or NOJCFFT")
     process.exit(0)
-    globals.JC = 0;
-}
+ }
 if (args.indexOf("NOJCFFT") !== -1) {
     console.log("This version of app.js *cannot* with flag NOJC or NOJCFFT")
     process.exit(0)
-    JCFFT = 0;
 }
 
 const app = express();
@@ -370,46 +367,44 @@ app.get("/fft/", (req, res) => {
 	fft_Y_N = asFloat64Array(payload.fft_y2);
     };
 
-    if (JCFFT) {
-	try {
-	    const samplingRate = TEIs.getModule(TEImodule).AdcSamplingRate;
-	    const nbperseg = acq_samples * 1024;
-	    const baseFreq = samplingRate / signal.length;
+    try {
+	const samplingRate = TEIs.getModule(TEImodule).AdcSamplingRate;
+	const nbperseg = acq_samples * 1024;
+	const baseFreq = samplingRate / signal.length;
 
-	    consolelog(`app.get("/fft/") first call signal.length=${signal.length} samplingRate=${samplingRate}  nbperseg=${nbperseg}`,10)
-	    const primarySpectrum = welchOptim(signal, samplingRate, nbperseg);
-	    const response = {
-		fft_x1: generateFftAxis(signal.length, baseFreq),
-		fft_y1: primarySpectrum,
-		f0: 0,
-		fft_x2: new Float64Array(0),
-		fft_y2: new Float64Array(0),
-	    };
+	consolelog(`app.get("/fft/") first call signal.length=${signal.length} samplingRate=${samplingRate}  nbperseg=${nbperseg}`,10)
+	const primarySpectrum = welchOptim(signal, samplingRate, nbperseg);
+	const response = {
+	    fft_x1: generateFftAxis(signal.length, baseFreq),
+	    fft_y1: primarySpectrum,
+	    f0: 0,
+	    fft_x2: new Float64Array(0),
+	    fft_y2: new Float64Array(0),
+	};
 
-	    if (seg !== 1) {
-		const adjustedNperseg = Math.max(1, Math.trunc(nbperseg / seg));
-		consolelog(`app.get("/fft/") second call signal.length=${signal.length} samplingRate=${samplingRate}  adjustedNperseg=${adjustedNperseg}`,10)
-		const secondarySpectrum = welchOptim(
-		    signal,
-		    samplingRate,
-		    adjustedNperseg,
-		);
-		const secondaryFreq = baseFreq * seg;
-		response.f0 = secondaryFreq;
-		response.fft_x2 = generateFftAxis(adjustedNperseg, secondaryFreq);
-		response.fft_y2 = secondarySpectrum;
-	    }
-
-	    applyWelchCache(response);
-	    sendCbor(res, response);
-	} catch (error) {
-	    consolelog(error);
-	    sendCbor(res, { error: "FFT processing failed" }, 500);
-	} finally {
-	    blinkLEDinterval = setInterval(blinkLEDstatus, 500);
+	if (seg !== 1) {
+	    const adjustedNperseg = Math.max(1, Math.trunc(nbperseg / seg));
+	    consolelog(`app.get("/fft/") second call signal.length=${signal.length} samplingRate=${samplingRate}  adjustedNperseg=${adjustedNperseg}`,10)
+	    const secondarySpectrum = welchOptim(
+		signal,
+		samplingRate,
+		adjustedNperseg,
+	    );
+	    const secondaryFreq = baseFreq * seg;
+	    response.f0 = secondaryFreq;
+	    response.fft_x2 = generateFftAxis(adjustedNperseg, secondaryFreq);
+	    response.fft_y2 = secondarySpectrum;
 	}
-	return;
+
+	applyWelchCache(response);
+	sendCbor(res, response);
+    } catch (error) {
+	consolelog(error);
+	sendCbor(res, { error: "FFT processing failed" }, 500);
+    } finally {
+	blinkLEDinterval = setInterval(blinkLEDstatus, 500);
     }
+    return;
 
 });
 
@@ -808,9 +803,6 @@ const appApi = {
 	return globals.verboseThresholdGlobal;
     },
     consolelog: globals.consolelog,
-    get JC() {
-	return globals.JC;
-    },
     startServer,
 };
 

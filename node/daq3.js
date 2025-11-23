@@ -36,8 +36,6 @@ function initParser() {
     var nbBytes = Math.ceil(getModule(moduleID).AdcResolution /4)
     parser = sp.pipe(new ByteLengthParser({ length: 16384 * nbBytes }))
     parser.on('data', function (data) {
-        // const startParserFunction = performance.now(); // JC 
-        // consolelog(`initParser daq3.js (l 37) Received acceptable data! ${typeof signal}  ${data.length}`,10)
         // positive values reach from 0 to AdcTreshold, 
         // negatives values from AdcTreshold to AdcTreshold*2 
         var threshold = getModule(moduleID).AdcTreshold
@@ -65,17 +63,10 @@ function initParser() {
             // signal tableau d'entiers +/- 
             signal.push(value)
         }
-        
-        // const end = performance.now(); 
-        // consolelog(`Temps d'exécution conversion dans initParser JC: ${(end - start).toFixed(3)} ms`,10);
 
         if (signal.length === signalLength) // signalLength est une variable globale affectee dans dataCollect
             //envoie un signal de fin d'acquisition
             eventEmitter.emit('acqDone'); // qui declancher un appel a la fonction acquistionDone
-
-        //consolelog(`initParser daq3.js(l 88) signal length ${signal.length} min: ${min.toString(16)} max: ${max.toString(16)}`,10)
-        //const endParserFunction = performance.now(); // JC 
-        //consolelog(`Temps d'exécution total dans initParser JC: ${(endParserFunction - startParserFunction).toFixed(3)} ms`,10);
     }) // FIN parser.on
 } // FIN function initParser()
 /********************************************************************************************/
@@ -283,36 +274,18 @@ function dataCollect(adcSamples){
     signal = []
     consolelog('signal vidé!',10)
     sp.flush()
-    if (globals.JC !== 1) {
-        //par paquets de 16ksamples
+    const cmd = 't' // t: actual, x: 12345 x 1M times, y: O 1  2 ... 2**20-1
+    if (cmd !='t')
+	consolelog("ATTENTION FAKE MEASURE !! (change cmd to 't' in daq3.js l317)")
+    setParameter(cmd).then( ()=>{
+        consolelog('trig...',10)
         for (var i=0; i!= adcSamples; i+=16){ 
-            // trigger the adc
-            consolelog('datacollect l 308 a la jc trig...',10)
-            setParameter('t').then( ()=>{
-                // Collect the data in chunks of 16 kbyte / 16 k * nibbles
-                setParameter('*').then( ()=>{
-                    //  getData(5*samples).then( (bits)=>{
-                    //   consolelog(`bits ${bits.length}`,10)
-                    //  })
-                    consolelog('*done',10)
-                })
-                consolelog('tdone',10)
+            setParameter('*').then( ()=>{
+                consolelog('*done',10)                
             })
         }
-    } else {
-	const cmd = 't' // t: actual, x: 12345 x 1M times, y: O 1  2 ... 2**20-1
-	if (cmd !='t')
-	    consolelog("ATTENTION FAKE MEASURE !! (change cmd to 't' in daq3.js l317)")
-        setParameter(cmd).then( ()=>{
-            consolelog('trig...',10)
-            for (var i=0; i!= adcSamples; i+=16){ 
-                setParameter('*').then( ()=>{
-                    consolelog('*done',10)                
-                })
-            }
-            consolelog('tdone',10)
-        })
-    }
+        consolelog('tdone',10)
+    })
 } // FIN function dataCollect(adcSamples){
 /********************************************************************************************/
 
